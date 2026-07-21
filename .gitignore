@@ -1,0 +1,26 @@
+# Конфиг пользователя
+SCLER.cfg
+SC_Quest_Patcher.cfg
+
+# Скачанные файлы
+contracts.ini
+ordnance.ini
+
+# Бэкапы
+*.noblueprints.bak
+*.noblueprints1.bak
+
+# Временные файлы
+*.tmp
+*.marker.tmp
+
+# Логи
+*.log
+
+# Диагностические скрипты
+dbg_*.ps1
+test_*.ps1
+build_*.ps1
+analyze_*.ps1
+list_*.ps1
+enrich_*.ps1
