@@ -53,4 +53,4 @@ iceee23 (dhhq2h9bkry3@mail.ru)
 
 ## Лицензия
 
-AS IS — используйте на свой страх и риск.
+[MIT](LICENSE)
