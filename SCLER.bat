@@ -13,41 +13,26 @@ echo ===========================================================================
 echo SCLER - SC Localization Enhancer Russian v1.13
 echo =======================================================================================================
 echo.
-echo Usage: SCLER_1.13.bat [source_file] [options]
+echo Usage: SCLER.bat [source_file] [options]
 echo.
-echo   source_file     - Path to global.ini (optional, see documentation for search order)
+echo   source_file     - Path to global.ini (optional)
 echo.
 echo Options:
-echo   -s, --skip      - Skip main stages, apply only user notes and user dictionary
-echo   -p, --path      - Pick new global.ini via file dialog and save to config
-echo   -r, --restore   - Restore global.ini from backup: global.ini.noblueprints.bak
+echo   -s, --skip      - Apply only user notes and dictionary
+echo   -p, --path      - Pick global.ini via file dialog
+echo   -r, --restore   - Restore global.ini from backup
 echo   -?, -h, --help  - Show this help
 echo.
-echo Description:
-echo   Adds blueprint information to mission titles and descriptions based on contracts.ini.
-echo   Adds guidance type (CS/EM/IR) to missile/torpedo names from ordnance.ini.
-echo   Optionally adds color tags to specified commodity items.
-echo   Adds Reputation Awarded and Scenario Progress Points information.
-echo   Optionally adds user notes from user_notes.ini.
-echo.
-echo   Replacement files are downloaded from https://github.com/MrKraken/StarStrings
-echo.
-echo   Creates a backup (global.ini.noblueprints.bak) only when changes are made.
-echo.
-echo   The script is configured via an external file SCLER.cfg (created on first run).
-echo   PowerShell logic is in scler.ps1 (must be in the same folder).
-echo   Translation tables are in scler_tables.ps1 (must be in the same folder).
-echo.
 echo Examples:
-echo   SCLER_1.13.bat
-echo   SCLER_1.13.bat "D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
+echo   SCLER.bat
+echo   SCLER.bat "D:\Games\RSI\...\global.ini"
 echo.
-echo Author: iceee23
-echo Email: dhhq2h9bkry3@mail.ru
-echo Version: 1.13 (2026-07-20)
+echo Full documentation: SCLER_Documentation.txt
+echo Author: iceee234
 echo =======================================================================================================
 pause
 exit /b
+
 
 :main
 setlocal enabledelayedexpansion
