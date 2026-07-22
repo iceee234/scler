@@ -25,7 +25,7 @@ echo   -?, -h, --help  - Show this help
 echo.
 echo Examples:
 echo   SCLER.bat
-echo   SCLER.bat "D:\Games\RSI\...\global.ini"
+echo   SCLER.bat "D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
 echo.
 echo Full documentation: SCLER_Documentation.txt
 echo Author: iceee234
