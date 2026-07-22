@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-:: SCLER v1.13
+echo SCLER v1.13
 
 if /i "%~1"=="-?" goto :help
 if /i "%~1"=="-h" goto :help
