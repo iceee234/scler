@@ -31,13 +31,13 @@ $useUserDict = $useUserDict -eq '1'
 $customOnly = $customOnly -eq '1'
 $titleFormat = $titleFormat.Trim()
 
-$transTablesFile = Join-Path $PSScriptRoot 'translation_tables.ps1'
+$transTablesFile = Join-Path $PSScriptRoot 'scler_tables.ps1'
 $rankKeyTable = @{}
 $itemTypeKeyTable = @{}
 if (Test-Path $transTablesFile) {
     . $transTablesFile
 } else {
-    Write-Host "Error: translation_tables.ps1 not found. Please reinstall the program."
+    Write-Host "Error: scler_tables.ps1 not found. Please reinstall the program."
     exit 1
 }
 

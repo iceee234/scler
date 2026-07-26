@@ -25,14 +25,13 @@ echo   -?, -h, --help  - Show this help
 echo.
 echo Examples:
 echo   SCLER.bat
-echo   SCLER.bat "D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
+echo   SCLER.bat "D:\Games\RSI\...\global.ini"
 echo.
 echo Full documentation: SCLER_Documentation.txt
 echo Author: iceee234
 echo =======================================================================================================
 pause
 exit /b
-
 
 :main
 setlocal enabledelayedexpansion
@@ -294,6 +293,7 @@ if "%USE_USER_DICT%"=="1" (
     )
 )
 
+:skip_config
 :: ---------- Find global.ini ----------
 set "GLOBAL_INI="
 set "SOURCE="
