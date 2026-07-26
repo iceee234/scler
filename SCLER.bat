@@ -97,8 +97,6 @@ if not exist "!SCRIPT_DIR!\scler.ps1" (
 
 set "CONFIG_FILE=!SCRIPT_DIR!\SCLER.cfg"
 
-if "%RESTORE_MODE%"=="1" goto :skip_config
-
 :: ---------- Config processing ----------
 if not exist "!CONFIG_FILE!" (
     echo Creating default configuration file...
@@ -384,7 +382,9 @@ if "%RESTORE_MODE%"=="1" (
         pause
         exit /b
     )
+
     copy /y "!BACKUP_FILE!" "!GLOBAL_INI!"
+    powershell -Command "$f='!GLOBAL_INI!'; $c=Get-Content $f -Encoding UTF8; $c=$c -notmatch '^SCLER_backup_created='; [System.IO.File]::WriteAllLines($f, $c, [System.Text.Encoding]::UTF8)"
     echo Restored global.ini from backup.
     pause
     exit /b
@@ -498,6 +498,8 @@ if exist "%ORDNANCE_FILE%" del "%ORDNANCE_FILE%" 2>nul
 echo Done.
 pause
 exit /b
+
+goto :eof
 
 :add_config_param
 :: %1 = param name, %2 = default value
