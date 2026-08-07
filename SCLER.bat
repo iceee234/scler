@@ -310,35 +310,35 @@ if "%USE_USER_DICT%"=="1" (
 )
 
 :: ---------- Download and validate STAR.bat ----------
-if not "%CUSTOM_ONLY%"=="1" (
-
 set "URL_STAR=https://raw.githubusercontent.com/ssvasilev/STAR/main/STAR.bat"
 set "STAR_FILE=!SCRIPT_DIR!\STAR.bat"
 
-if not exist "!STAR_FILE!" (
-    echo Downloading STAR.bat...
-    powershell -ExecutionPolicy Bypass -Command "$tmp = Join-Path $env:TEMP 'star_download.tmp'; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_STAR%' -OutFile $tmp -UseBasicParsing; $content = [System.IO.File]::ReadAllText($tmp, [System.Text.Encoding]::UTF8); $content = $content -replace \"`r`n\", \"`n\" -replace \"`n\", \"`r`n\"; $utf8NoBom = New-Object System.Text.UTF8Encoding($false); [System.IO.File]::WriteAllText('%STAR_FILE%', $content, $utf8NoBom); Remove-Item $tmp" >nul 2>&1
-    if errorlevel 1 (
-        echo Warning: Failed to download STAR.bat. STAR integration skipped.
-        set "USE_STAR=0"
-        goto :star_done
-    )
+if not "%CUSTOM_ONLY%"=="1" (
+    if not exist "!STAR_FILE!" (
+        echo Downloading STAR.bat...
+        powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_STAR%' -OutFile '!STAR_FILE!' -UseBasicParsing" >nul 2>&1
+        if errorlevel 1 (
+            echo Warning: Failed to download STAR.bat. STAR integration skipped.
+            set "USE_STAR=0"
+            goto :star_done
+        )
 
-    powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '%STAR_FILE%').Length -lt 30720) { exit 1 } }" >nul 2>&1
-    if errorlevel 1 (
-        echo Warning: STAR.bat is too small. STAR integration skipped.
-        set "USE_STAR=0"
-        goto :star_done
-    )
+        powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '!STAR_FILE!').Length -lt 30720) { exit 1 } }" >nul 2>&1
+        if errorlevel 1 (
+            echo Warning: STAR.bat is too small. STAR integration skipped.
+            set "USE_STAR=0"
+            goto :star_done
+        )
 
-    powershell -ExecutionPolicy Bypass -Command "& { $content = Get-Content -LiteralPath '%STAR_FILE%' -Encoding UTF8 -Raw; if ($content -notmatch 'STAR' -or $content -notmatch 'ssvasilev') { exit 1 } }" >nul 2>&1
-    if errorlevel 1 (
-        echo Warning: STAR.bat does not appear to be valid. STAR integration skipped.
-        set "USE_STAR=0"
-        goto :star_done
-    )
-)
+        powershell -ExecutionPolicy Bypass -Command "& { $content = Get-Content -LiteralPath '!STAR_FILE!' -Encoding UTF8 -Raw; if ($content -notmatch 'STAR' -or $content -notmatch 'ssvasilev') { exit 1 } }" >nul 2>&1
+        if errorlevel 1 (
+            echo Warning: STAR.bat does not appear to be valid. STAR integration skipped.
+            set "USE_STAR=0"
+            goto :star_done
+        )
 
+        powershell -ExecutionPolicy Bypass -Command "$content = [System.IO.File]::ReadAllText('!STAR_FILE!', [System.Text.Encoding]::UTF8); $content = $content -replace \"`r`n\", \"`n\" -replace \"`n\", \"`r`n\"; $utf8NoBom = New-Object System.Text.UTF8Encoding($false); [System.IO.File]::WriteAllText('!STAR_FILE!', $content, $utf8NoBom)" >nul 2>&1
+    )
 )
 
 :star_done
@@ -349,7 +349,7 @@ set "SOURCE="
 set "LOCAL_INI="
 set "LOCAL_SOURCE="
 
-:: 1. Command line argument (via SOURCE_PATH) — always takes priority, no STAR
+:: 1. Command line argument
 if defined SOURCE_PATH (
     set "GLOBAL_INI=!SOURCE_PATH!"
     set "SOURCE=command line"
@@ -365,10 +365,10 @@ if "%RESTORE_MODE%"=="1" if not defined SOURCE_PATH (
     )
 )
 
-:: If -p, skip to file dialog immediately
+:: 2. File dialog (-p)
 if "%PICK_PATH%"=="1" goto :file_dialog
 
-:: 2. Local config (SCLER.cfg)
+:: 3. Local config (SCLER.cfg)
 if defined CFG_GLOBAL_INI_PATH if not "!CFG_GLOBAL_INI_PATH!"=="" (
     set "CLEAN_PATH=!CFG_GLOBAL_INI_PATH:"=!"
     for /f "tokens=*" %%s in ("!CLEAN_PATH!") do set "GLOBAL_INI=%%s"
@@ -379,22 +379,12 @@ if defined CFG_GLOBAL_INI_PATH if not "!CFG_GLOBAL_INI_PATH!"=="" (
         set "LOCAL_INI=!GLOBAL_INI!"
         set "LOCAL_SOURCE=local config"
         set "GLOBAL_INI="
-    )
-)
-
-:: 3. Current directory
-if not defined LOCAL_INI (
-    set "GLOBAL_INI=%CD%\global.ini"
-    if exist "!GLOBAL_INI!" (
-        set "LOCAL_INI=!GLOBAL_INI!"
-        set "LOCAL_SOURCE=local file"
-        set "GLOBAL_INI="
     ) else (
         set "GLOBAL_INI="
     )
 )
 
-:: 4. Script directory
+:: 4. Script directory (for debugging)
 if not defined LOCAL_INI (
     set "GLOBAL_INI=%SCRIPT_DIR%\global.ini"
     if exist "!GLOBAL_INI!" (
@@ -406,12 +396,10 @@ if not defined LOCAL_INI (
     )
 )
 
-:: 5. STAR — if we have LIVE_PATH and STAR.bat, check for updates
-if "%CUSTOM_ONLY%"=="0" if defined CFG_LIVE_PATH if exist "!SCRIPT_DIR!\STAR.bat" (
-    if "%PICK_PATH%"=="0" if "%RESTORE_MODE%"=="0" if "!USE_STAR!"=="1" (
-        call :run_star
-        if defined GLOBAL_INI goto :report_source
-    )
+:: 5. STAR — check for updates
+if "%CUSTOM_ONLY%"=="0" if "%PICK_PATH%"=="0" if "%RESTORE_MODE%"=="0" if "!USE_STAR!"=="1" if exist "!SCRIPT_DIR!\STAR.bat" (
+    call :run_star
+    if defined GLOBAL_INI goto :report_source
 )
 
 :: 6. Use locally found file if STAR didn't provide one
@@ -421,14 +409,8 @@ if not defined GLOBAL_INI if defined LOCAL_INI (
     goto :report_source
 )
 
-:: 7. STAR — if no local file, try to download via STAR
-if "%CUSTOM_ONLY%"=="0" if "%PICK_PATH%"=="0" if "%RESTORE_MODE%"=="0" if "!USE_STAR!"=="1" (
-    call :run_star
-    if defined GLOBAL_INI goto :report_source
-)
-
 :file_dialog
-:: 8. File dialog (always for -p, or as last resort)
+:: 7. File dialog (always for -p, or as last resort)
 if defined GLOBAL_INI goto :after_dialog
 for /f "delims=" %%f in ('powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = 'Global.ini|global.ini'; $f.Title = 'Select global.ini'; if ($f.ShowDialog() -eq 'OK') { $f.FileName }"') do set "GLOBAL_INI=%%f"
 if defined GLOBAL_INI (
