@@ -26,6 +26,8 @@ echo.
 echo Examples:
 echo   SCLER.bat
 echo   SCLER.bat "D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
+echo   SCLER.bat -s
+echo   SCLER.bat -r
 echo.
 echo Full documentation: SCLER_Documentation.txt
 echo Author: iceee234
@@ -49,7 +51,7 @@ if /i "%~1"=="--path"  set "PICK_PATH=1"
 if /i "%~1"=="-r"      set "RESTORE_MODE=1"
 if /i "%~1"=="--restore" set "RESTORE_MODE=1"
 
-:: If %1 was -s or -r, %2 is the path (check it exists)
+:: If %1 was -s or -r, %2 is the path
 if "%CUSTOM_ONLY%"=="1" if not "%~2"=="" (
     if exist "%~f2" (
         set "SOURCE_PATH=%~f2"
@@ -302,13 +304,6 @@ if "%USE_USER_DICT%"=="1" (
     )
 )
 
-if "%USE_USER_DICT%"=="1" (
-    if not exist "!SCRIPT_DIR!\user_dict.ini" (
-        echo Warning: USE_USER_DICT enabled but user_dict.ini not found. Disabling.
-        set "USE_USER_DICT=0"
-    )
-)
-
 :: ---------- Download and validate STAR.bat ----------
 set "URL_STAR=https://raw.githubusercontent.com/ssvasilev/STAR/main/STAR.bat"
 set "STAR_FILE=!SCRIPT_DIR!\STAR.bat"
@@ -349,7 +344,7 @@ set "SOURCE="
 set "LOCAL_INI="
 set "LOCAL_SOURCE="
 
-:: 1. Command line argument
+:: 1. Command line argument (via SOURCE_PATH)
 if defined SOURCE_PATH (
     set "GLOBAL_INI=!SOURCE_PATH!"
     set "SOURCE=command line"
@@ -459,12 +454,6 @@ if "%RESTORE_MODE%"=="1" (
 
 echo Using global.ini from !SOURCE!: "!GLOBAL_INI!"
 
-if "%CUSTOM_ONLY%"=="1" (
-    set "CONTRACTS_FILE="
-    set "ORDNANCE_FILE="
-    goto :skip_downloads
-)
-
 :: ---------- Validate global.ini ----------
 powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '%GLOBAL_INI%').Length -lt 1048576) { exit 1 } }" >nul 2>&1
 if errorlevel 1 (
@@ -488,6 +477,12 @@ if errorlevel 1 (
     echo Error: The file does not appear to be a valid global.ini.
     pause
     exit /b 1
+)
+
+if "%CUSTOM_ONLY%"=="1" (
+    set "CONTRACTS_FILE="
+    set "ORDNANCE_FILE="
+    goto :skip_downloads
 )
 
 :: ---------- Download and validate contracts.ini ----------
@@ -608,6 +603,8 @@ if defined CFG_LIVE_PATH (
     if exist "!GLOBAL_INI!" (
         set "SOURCE=STAR download"
         set "STAR_FOUND=1"
+    ) else (
+        set "GLOBAL_INI="
     )
 )
 
