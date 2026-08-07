@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo SCLER v1.13
+echo SCLER v1.14
 
 if /i "%~1"=="-?" goto :help
 if /i "%~1"=="-h" goto :help
@@ -10,7 +10,7 @@ goto :main
 :help
 cls
 echo =======================================================================================================
-echo SCLER - SC Localization Enhancer Russian v1.13
+echo SCLER - SC Localization Enhancer Russian v1.14
 echo =======================================================================================================
 echo.
 echo Usage: SCLER.bat [source_file] [options]
@@ -25,7 +25,7 @@ echo   -?, -h, --help  - Show this help
 echo.
 echo Examples:
 echo   SCLER.bat
-echo   SCLER.bat "D:\Games\RSI\...\global.ini"
+echo   SCLER.bat "D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
 echo.
 echo Full documentation: SCLER_Documentation.txt
 echo Author: iceee234
@@ -114,6 +114,8 @@ if not exist "!CONFIG_FILE!" (
         echo USE_USER_NOTES=0
         echo # User dictionary replacements ^(1 = enabled, 0 = disabled^)
         echo USE_USER_DICT=0
+        echo # Use STAR for automatic global.ini download
+        echo USE_STAR=1
         echo.
         echo # Commodity color words ^(semicolon-separated^)
         echo # Known commodity words: Adult; Apex; Grade A; Grade AA; Grade AAA; Grade B; Grade C; Juvenile; Ore; Pure; R; Raw;
@@ -148,6 +150,7 @@ if not exist "!CONFIG_FILE!" (
     set "USE_COLOR_TAGS=1"
     set "USE_USER_NOTES=0"
     set "USE_USER_DICT=0"
+    set "USE_STAR=1"
     set "COLOR_TAGS_BLUE="
     set "COLOR_TAGS_GREEN=Grade AAA;"
     set "COLOR_TAGS_YELLOW="
@@ -155,6 +158,7 @@ if not exist "!CONFIG_FILE!" (
     set "USE_CARGO_TITLES=1"
     set "TITLE_FORMAT=1"
     set "CFG_GLOBAL_INI_PATH="
+    set "CFG_LIVE_PATH="
     goto :config_done
 )
 
@@ -165,6 +169,8 @@ set "CFG_USE_SPP_TAG="
 set "CFG_USE_COLOR_TAGS="
 set "CFG_USE_USER_NOTES="
 set "CFG_USE_USER_DICT="
+set "CFG_USE_STAR="
+set "CFG_LIVE_PATH="
 set "CFG_COLOR_TAGS_BLUE="
 set "CFG_COLOR_TAGS_GREEN="
 set "CFG_COLOR_TAGS_YELLOW="
@@ -219,15 +225,16 @@ for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
             if "!val: =!"=="1" set "CFG_USE_USER_DICT=1"
             if "!val: =!"=="0" set "CFG_USE_USER_DICT=0"
         )
+        if /i "!key!"=="USE_STAR" (
+            if "!val: =!"=="1" set "CFG_USE_STAR=1"
+            if "!val: =!"=="0" set "CFG_USE_STAR=0"
+        )
+        if /i "!key!"=="LIVE_PATH" (
+            set "CFG_LIVE_PATH=!val!"
+        )
     )
 )
 chcp 65001 >nul
-
-:: Add missing parameters to existing config
-call :add_config_param USE_USER_NOTES 0
-call :add_config_param USE_USER_DICT 0
-call :add_config_param USE_CARGO_TITLES 1
-call :add_config_param TITLE_FORMAT 1
 
 :: Validate and apply configuration values
 if defined CFG_USE_RP_AWARD_TAG (set "USE_RP_AWARD_TAG=!CFG_USE_RP_AWARD_TAG!") else (set "USE_RP_AWARD_TAG=0")
@@ -236,6 +243,7 @@ if defined CFG_USE_USER_NOTES   (set "USE_USER_NOTES=!CFG_USE_USER_NOTES!")   el
 if defined CFG_USE_COLOR_TAGS   (set "USE_COLOR_TAGS=!CFG_USE_COLOR_TAGS!")   else (set "USE_COLOR_TAGS=1")
 if defined CFG_USE_USER_DICT    (set "USE_USER_DICT=!CFG_USE_USER_DICT!")    else (set "USE_USER_DICT=0")
 if defined CFG_USE_CARGO_TITLES (set "USE_CARGO_TITLES=!CFG_USE_CARGO_TITLES!") else (set "USE_CARGO_TITLES=1")
+if defined CFG_USE_STAR         (set "USE_STAR=!CFG_USE_STAR!")              else (set "USE_STAR=1")
 
 :: Validate TITLE_FORMAT
 if not defined CFG_TITLE_FORMAT set "CFG_TITLE_FORMAT=1"
@@ -277,6 +285,9 @@ if "%USE_USER_NOTES%"=="0" (
 if "%USE_USER_DICT%"=="0" (
     echo User Dict module is disabled.
 )
+if "%USE_STAR%"=="0" (
+    echo STAR integration is disabled.
+)
 
 if "%USE_USER_NOTES%"=="1" (
     if not exist "!SCRIPT_DIR!\user_notes.ini" (
@@ -291,63 +302,134 @@ if "%USE_USER_DICT%"=="1" (
     )
 )
 
-:skip_config
+if "%USE_USER_DICT%"=="1" (
+    if not exist "!SCRIPT_DIR!\user_dict.ini" (
+        echo Warning: USE_USER_DICT enabled but user_dict.ini not found. Disabling.
+        set "USE_USER_DICT=0"
+    )
+)
+
+:: ---------- Download and validate STAR.bat ----------
+if not "%CUSTOM_ONLY%"=="1" (
+
+set "URL_STAR=https://raw.githubusercontent.com/ssvasilev/STAR/main/STAR.bat"
+set "STAR_FILE=!SCRIPT_DIR!\STAR.bat"
+
+if not exist "!STAR_FILE!" (
+    echo Downloading STAR.bat...
+    powershell -ExecutionPolicy Bypass -Command "$tmp = Join-Path $env:TEMP 'star_download.tmp'; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_STAR%' -OutFile $tmp -UseBasicParsing; $content = [System.IO.File]::ReadAllText($tmp, [System.Text.Encoding]::UTF8); $content = $content -replace \"`r`n\", \"`n\" -replace \"`n\", \"`r`n\"; $utf8NoBom = New-Object System.Text.UTF8Encoding($false); [System.IO.File]::WriteAllText('%STAR_FILE%', $content, $utf8NoBom); Remove-Item $tmp" >nul 2>&1
+    if errorlevel 1 (
+        echo Warning: Failed to download STAR.bat. STAR integration skipped.
+        set "USE_STAR=0"
+        goto :star_done
+    )
+
+    powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '%STAR_FILE%').Length -lt 30720) { exit 1 } }" >nul 2>&1
+    if errorlevel 1 (
+        echo Warning: STAR.bat is too small. STAR integration skipped.
+        set "USE_STAR=0"
+        goto :star_done
+    )
+
+    powershell -ExecutionPolicy Bypass -Command "& { $content = Get-Content -LiteralPath '%STAR_FILE%' -Encoding UTF8 -Raw; if ($content -notmatch 'STAR' -or $content -notmatch 'ssvasilev') { exit 1 } }" >nul 2>&1
+    if errorlevel 1 (
+        echo Warning: STAR.bat does not appear to be valid. STAR integration skipped.
+        set "USE_STAR=0"
+        goto :star_done
+    )
+)
+
+)
+
+:star_done
+
 :: ---------- Find global.ini ----------
 set "GLOBAL_INI="
 set "SOURCE="
+set "LOCAL_INI="
+set "LOCAL_SOURCE="
 
-:: 1. Command line argument (via SOURCE_PATH)
+:: 1. Command line argument (via SOURCE_PATH) — always takes priority, no STAR
 if defined SOURCE_PATH (
     set "GLOBAL_INI=!SOURCE_PATH!"
     set "SOURCE=command line"
     goto :report_source
 )
 
-:: 2. Pick path via file dialog
+:: ---------- Restore mode ----------
+if "%RESTORE_MODE%"=="1" if not defined SOURCE_PATH (
+    if defined CFG_GLOBAL_INI_PATH if not "!CFG_GLOBAL_INI_PATH!"=="" (
+        set "GLOBAL_INI=!CFG_GLOBAL_INI_PATH!"
+        set "SOURCE=local config"
+        goto :report_source
+    )
+)
+
+:: If -p, skip to file dialog immediately
 if "%PICK_PATH%"=="1" goto :file_dialog
 
-:: 3. Local config (SCLER.cfg)
-if defined CFG_GLOBAL_INI_PATH (
+:: 2. Local config (SCLER.cfg)
+if defined CFG_GLOBAL_INI_PATH if not "!CFG_GLOBAL_INI_PATH!"=="" (
     set "CLEAN_PATH=!CFG_GLOBAL_INI_PATH:"=!"
     for /f "tokens=*" %%s in ("!CLEAN_PATH!") do set "GLOBAL_INI=%%s"
     if "!GLOBAL_INI:~1,1!" neq ":" if "!GLOBAL_INI!" neq "" (
         set "GLOBAL_INI=!SCRIPT_DIR!\!GLOBAL_INI!"
     )
     if exist "!GLOBAL_INI!" (
-        set "SOURCE=local config"
-        goto :report_source
+        set "LOCAL_INI=!GLOBAL_INI!"
+        set "LOCAL_SOURCE=local config"
+        set "GLOBAL_INI="
     )
 )
 
-:: 4. STAR config (star_config.cfg)
-for /f "delims=" %%f in ('powershell -ExecutionPolicy Bypass -Command ^
-    "try { $l = (Get-Content '%SCRIPT_DIR%\star_config.cfg' -Encoding UTF8 | Select-String '^LIVE_PATH=(.*)').Matches.Groups[1].Value.Trim(); if ($l) { Join-Path $l 'Data\Localization\korean_(south_korea)\global.ini' } else { '' } } catch { '' }"') do set "GLOBAL_INI=%%f"
-
-if defined GLOBAL_INI (
-    if not "!GLOBAL_INI!"=="" (
-        if exist "!GLOBAL_INI!" (
-            set "SOURCE=star_config.cfg"
-            goto :report_source
-        )
+:: 3. Current directory
+if not defined LOCAL_INI (
+    set "GLOBAL_INI=%CD%\global.ini"
+    if exist "!GLOBAL_INI!" (
+        set "LOCAL_INI=!GLOBAL_INI!"
+        set "LOCAL_SOURCE=local file"
+        set "GLOBAL_INI="
+    ) else (
+        set "GLOBAL_INI="
     )
 )
 
-:: 5. Current directory
-set "GLOBAL_INI=%CD%\global.ini"
-if exist "!GLOBAL_INI!" (
-    set "SOURCE=local file"
+:: 4. Script directory
+if not defined LOCAL_INI (
+    set "GLOBAL_INI=%SCRIPT_DIR%\global.ini"
+    if exist "!GLOBAL_INI!" (
+        set "LOCAL_INI=!GLOBAL_INI!"
+        set "LOCAL_SOURCE=script directory"
+        set "GLOBAL_INI="
+    ) else (
+        set "GLOBAL_INI="
+    )
+)
+
+:: 5. STAR — if we have LIVE_PATH and STAR.bat, check for updates
+if "%CUSTOM_ONLY%"=="0" if defined CFG_LIVE_PATH if exist "!SCRIPT_DIR!\STAR.bat" (
+    if "%PICK_PATH%"=="0" if "%RESTORE_MODE%"=="0" if "!USE_STAR!"=="1" (
+        call :run_star
+        if defined GLOBAL_INI goto :report_source
+    )
+)
+
+:: 6. Use locally found file if STAR didn't provide one
+if not defined GLOBAL_INI if defined LOCAL_INI (
+    set "GLOBAL_INI=!LOCAL_INI!"
+    set "SOURCE=!LOCAL_SOURCE!"
     goto :report_source
 )
 
-:: 6. Script directory
-set "GLOBAL_INI=%SCRIPT_DIR%\global.ini"
-if exist "!GLOBAL_INI!" (
-    set "SOURCE=script directory"
-    goto :report_source
+:: 7. STAR — if no local file, try to download via STAR
+if "%CUSTOM_ONLY%"=="0" if "%PICK_PATH%"=="0" if "%RESTORE_MODE%"=="0" if "!USE_STAR!"=="1" (
+    call :run_star
+    if defined GLOBAL_INI goto :report_source
 )
 
 :file_dialog
-:: 7. File dialog
+:: 8. File dialog (always for -p, or as last resort)
+if defined GLOBAL_INI goto :after_dialog
 for /f "delims=" %%f in ('powershell -ExecutionPolicy Bypass -Command "Add-Type -AssemblyName System.Windows.Forms; $f = New-Object System.Windows.Forms.OpenFileDialog; $f.Filter = 'Global.ini|global.ini'; $f.Title = 'Select global.ini'; if ($f.ShowDialog() -eq 'OK') { $f.FileName }"') do set "GLOBAL_INI=%%f"
 if defined GLOBAL_INI (
     if exist "!GLOBAL_INI!" (
@@ -357,7 +439,11 @@ if defined GLOBAL_INI (
         )
         goto :report_source
     )
+    set "GLOBAL_INI="
 )
+
+:after_dialog
+if defined GLOBAL_INI goto :report_source
 
 echo.
 echo Error: global.ini not found. Check the file path or place the file in the program folder.
@@ -382,7 +468,6 @@ if "%RESTORE_MODE%"=="1" (
         pause
         exit /b
     )
-
     copy /y "!BACKUP_FILE!" "!GLOBAL_INI!"
     powershell -Command "$f='!GLOBAL_INI!'; $c=Get-Content $f -Encoding UTF8; $c=$c -notmatch '^SCLER_backup_created='; [System.IO.File]::WriteAllLines($f, $c, [System.Text.Encoding]::UTF8)"
     echo Restored global.ini from backup.
@@ -390,7 +475,13 @@ if "%RESTORE_MODE%"=="1" (
     exit /b
 )
 
-echo Using global.ini from %SOURCE%: "!GLOBAL_INI!"
+echo Using global.ini from !SOURCE!: "!GLOBAL_INI!"
+
+if "%CUSTOM_ONLY%"=="1" (
+    set "CONTRACTS_FILE="
+    set "ORDNANCE_FILE="
+    goto :skip_downloads
+)
 
 :: ---------- Validate global.ini ----------
 powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '%GLOBAL_INI%').Length -lt 1048576) { exit 1 } }" >nul 2>&1
@@ -417,19 +508,13 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if "%CUSTOM_ONLY%"=="1" (
-    set "CONTRACTS_FILE="
-    set "ORDNANCE_FILE="
-    goto :skip_downloads
-)
-
 :: ---------- Download and validate contracts.ini ----------
 set "URL_CONTRACTS=https://raw.githubusercontent.com/MrKraken/StarStrings/master/src/For_Tool_Creators/contracts.ini"
 set "CONTRACTS_FILE=%SCRIPT_DIR%\contracts.ini"
 
 if not exist "%CONTRACTS_FILE%" (
     echo Downloading contracts.ini...
-    powershell -ExecutionPolicy Bypass -Command "& { [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%URL_CONTRACTS%' -OutFile '%CONTRACTS_FILE%' -UseBasicParsing | Out-Null }"
+    powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_CONTRACTS%' -OutFile '%CONTRACTS_FILE%' -UseBasicParsing" >nul 2>&1
     if errorlevel 1 (
         echo.
         echo Error: Failed to download contracts.ini.
@@ -462,7 +547,7 @@ set "ORDNANCE_FILE=%SCRIPT_DIR%\ordnance.ini"
 
 if not exist "%ORDNANCE_FILE%" (
     echo Downloading ordnance.ini...
-    powershell -ExecutionPolicy Bypass -Command "& { [Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%URL_ORDNANCE%' -OutFile '%ORDNANCE_FILE%' -UseBasicParsing | Out-Null }"
+    powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_ORDNANCE%' -OutFile '%ORDNANCE_FILE%' -UseBasicParsing" >nul 2>&1
     if errorlevel 1 (
         echo Warning: Failed to download ordnance.ini. Ordnance module skipped.
         set "ORDNANCE_FILE="
@@ -488,6 +573,13 @@ if defined ORDNANCE_FILE (
 )
 
 :skip_downloads
+if not exist "!GLOBAL_INI!" (
+    echo.
+    echo Error: global.ini not found.
+    pause
+    exit /b 1
+)
+
 :: ---------- Run scler.ps1 ----------
 powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scler.ps1" -file1 "%GLOBAL_INI%" -file2 "%CONTRACTS_FILE%" -ordnancePath "%ORDNANCE_FILE%" -useColorTags %USE_COLOR_TAGS% -useRpAwardTag %USE_RP_AWARD_TAG% -useSppTag %USE_SPP_TAG% -useUserNotes %USE_USER_NOTES% -colorBlue "%COLOR_TAGS_BLUE%" -colorGreen "%COLOR_TAGS_GREEN%" -colorYellow "%COLOR_TAGS_YELLOW%" -colorRed "%COLOR_TAGS_RED%" -titleFormat "!TITLE_FORMAT!" -useCargoTitles !USE_CARGO_TITLES! -useUserDict !USE_USER_DICT! -customOnly !CUSTOM_ONLY!
 if errorlevel 1 echo Error: PowerShell error occurred.
@@ -498,6 +590,56 @@ if exist "%ORDNANCE_FILE%" del "%ORDNANCE_FILE%" 2>nul
 echo Done.
 pause
 exit /b
+
+goto :eof
+
+:run_star
+if not exist "!SCRIPT_DIR!\STAR.bat" (
+    echo SCLER: STAR.bat not found. Skipping.
+    goto :eof
+)
+
+echo SCLER: Running STAR...
+start "" /wait cmd /c "!SCRIPT_DIR!\STAR.bat" -no-launch
+
+echo STAR completed.
+echo.
+
+:: Read LIVE_PATH back from STAR config
+if exist "!SCRIPT_DIR!\star_config.cfg" (
+    for /f "usebackq tokens=1,* delims==" %%a in ("!SCRIPT_DIR!\star_config.cfg") do (
+        if "%%a"=="LIVE_PATH" (
+            set "STAR_LIVE_PATH=%%b"
+            set "CFG_LIVE_PATH=%%b"
+        )
+    )
+)
+
+:: Save LIVE_PATH for future auto-mode
+if defined CFG_LIVE_PATH (
+    call :save_live_path
+)
+
+:: Check for global.ini
+if defined CFG_LIVE_PATH (
+    set "GLOBAL_INI=!CFG_LIVE_PATH!\data\Localization\korean_(south_korea)\global.ini"
+    if exist "!GLOBAL_INI!" (
+        set "SOURCE=STAR download"
+        set "STAR_FOUND=1"
+    )
+)
+
+:: Save GLOBAL_INI_PATH to config
+if defined GLOBAL_INI if exist "!GLOBAL_INI!" (
+    powershell -Command "$path = '!GLOBAL_INI!'; $cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; if ($cfg -notmatch 'GLOBAL_INI_PATH=') { $cfg += \"`nGLOBAL_INI_PATH=$path\" }; $cfg = $cfg -replace 'GLOBAL_INI_PATH=.*', ('GLOBAL_INI_PATH=' + $path); [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)"
+)
+goto :eof
+
+:save_live_path
+if not defined CFG_LIVE_PATH goto :eof
+if not exist "!CONFIG_FILE!" goto :eof
+powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; if ($cfg -notmatch 'LIVE_PATH=') { $cfg += \"`nLIVE_PATH=!CFG_LIVE_PATH!\" }; $cfg = $cfg -replace 'LIVE_PATH=.*', 'LIVE_PATH=!CFG_LIVE_PATH!'; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)"
+goto :eof
 
 goto :eof
 
