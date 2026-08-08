@@ -1,15 +1,15 @@
 SCLER - SC Localization Enhancer Russian
 ========================================
 Руководство пользователя
-Документация от: 2026-08-07
+Документация от: 2026-08-08
 
 
 1. Что делает программа
 -----------------------
 
-Эта программа добавляет в ваш файл локализации игры Star Citizen
-полезную информацию о чертежах (blueprints), наградах и прогрессе,
-которые можно получить за выполнение контрактов.
+SCLER дополняет русский файл локализации игры Star Citizen полезной информацией: 
+чертежи, награды, типы модулей с классами, размеры оружия, ресурсы майнинга, 
+типы ракет и многое другое.
 
 После её работы:
 - В описаниях миссий появятся списки доступных чертежей с пометкой
@@ -29,6 +29,8 @@ SCLER - SC Localization Enhancer Russian
 - Возможность замены любых строк через пользовательский словарь.
 - Названия ракет и торпед будут дополнены типом головки
   самонаведения (CS, EM, IR).
+- Названия ресурсов майнинга будут дополнены значениями сигнатуры
+  (например, «Bexalite (RS 3600)»).
 
 После успешного завершения работы программы и добавления изменений
 в файл локализации вы увидите на главной странице в игре слева
@@ -58,36 +60,26 @@ SCLER - SC Localization Enhancer Russian
 2. Что нужно для работы
 ------------------------
 
-- Windows любой современной версии.
-- PowerShell (встроен в систему, обычно уже есть).
+- Windows 10/11.
+- PowerShell 5.1 или выше (встроен в систему).
 - Права на запись в папку, где лежит программа.
-- Скачанный русскоязычный файл global.ini.
-- Права на запись в папку, где лежит global.ini.
-- Доступ к GitHub (https://github.com/MrKraken/StarStrings) для скачивания
-  файлов с описанием миссий (contracts.ini, ordnance.ini).
-- Доступ к GitHub (https://github.com/ssvasilev/STAR) для скачивания
-  скрипта STAR.
+- Права на запись в папку с файлом global.ini.
+- Доступ к GitHub для скачивания файлов:
+  https://github.com/MrKraken/StarStrings (contracts.ini, ordnance.ini, mining.ini)
+  https://github.com/ssvasilev/STAR (STAR.bat)
 
 
 3. Как запустить
 -----------------
 
-Состав программы:
-- SCLER.bat — основной запускаемый файл.
-- scler.ps1 — скрипт обработки (PowerShell).
-- scler_tables.ps1 — справочник программы.
-- user_notes.ini — пользовательские заметки к миссиям.
-- user_dict.ini — пользовательский словарь замен.
-- SCLER.cfg — файл настроек (создаётся автоматически).
-
-Все файлы должны находиться в одной папке.
-
-1. Поместите файлы программы в удобное место.
-2. Установите или обновите файл global.ini.
-3. Запустите SCLER.bat двойным щелчком мыши.
-4. Дождитесь завершения, нажмите любую клавишу.
+1) Скачайте последнюю версию SCLER с GitHub: https://github.com/iceee234/scler/releases
+2) Распакуйте архив в удобное место.
+3) Запустите SCLER.bat двойным щелчком мыши.
+4) При первом запуске STAR проведёт начальную настройку путей к игре.
+5) Дождитесь завершения обработки, нажмите любую клавишу.
 
 Дополнительные ключи запуска:
+  -?, -h, --help  Показать справку.
   -s, --skip      Применить только пользовательские заметки и словарь,
                   без повторной обработки всего файла.
   -p, --path      Выбрать файл global.ini через диалог и сохранить
@@ -95,42 +87,59 @@ SCLER - SC Localization Enhancer Russian
   -r, --restore   Восстановить global.ini из резервной копии
                   (global.ini.noblueprints.bak). Путь к файлу берётся
                   из конфига (GLOBAL_INI_PATH).
-  -?, -h, --help  Показать справку.
 
-Примеры:
 Примеры:
   SCLER.bat
   SCLER.bat "D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
   SCLER.bat -s
   SCLER.bat -r
 
+
 4. Как программа находит global.ini
 ------------------------------------
 Программа ищет файл global.ini в следующем порядке:
 
-1. Путь указан в аргументе командной строки.
-2. Путь указан в SCLER.cfg (параметр GLOBAL_INI_PATH).
-3. Файл global.ini находится в текущей папке запуска программы.
-4. Файл global.ini находится в папке с программой.
-5. Если настроена интеграция со STAR (USE_STAR=1), программа запускает
+1) Путь указан в аргументе командной строки.
+2) Путь указан в SCLER.cfg.
+3) Если настроена интеграция со STAR, программа запускает
    STAR.bat, который проверяет наличие обновлений локализации на GitHub
    и при необходимости скачивает актуальный global.ini.
-6. Если файл не найден, программа предложит выбрать его через диалог.
+4) Если файл не найден, программа предложит выбрать его через диалог.
+
+5. Состав программы
+--------------------
+
+Файлы дистрибутива:
+- SCLER.bat — основной запускаемый файл.
+- scler.ps1 — основной скрипт обработки.
+- scler_tables.ps1 — справочник программы.
+- urls.cfg — служебный файл с адресами для загрузки данных.
+- user_notes.ini — пользовательские заметки к миссиям.
+- user_dict.ini — пользовательский словарь замен.
+
+Файлы, создаваемые при работе:
+- SCLER.cfg — файл настроек.
+
+Все файлы должны находиться в одной папке.
 
 
-5. Дополнительные файлы
+6. Дополнительные файлы
 ------------------------
 
-Файлы contracts.ini и ordnance.ini скачиваются из репозитория
+Файлы contracts.ini, ordnance.ini и mining.ini скачиваются из репозитория
 https://github.com/MrKraken/StarStrings при каждом запуске.
-Они содержат информацию о чертежах, наградах и типах вооружений,
-добавляемых в описания миссий.
+Они содержат информацию о чертежах, наградах, типах вооружений
+и ресурсах для майнинга, добавляемых в описания миссий.
 
 Файл STAR.bat скачивается из репозитория
 https://github.com/ssvasilev/STAR при запуске программы, проверяет наличие обновлений
 и скачивает файл русской локализации global.ini с GitHub.
 
-6. Дополнительные настройки
+Файл star_config.cfg создаётся STAR при начальной настройке
+и содержит пути к игре и лаунчеру.
+
+
+7. Дополнительные настройки
 ----------------------------
 
 Настройки хранятся в файле SCLER.cfg, который создаётся
@@ -144,6 +153,7 @@ USE_COLOR_TAGS         Цветные теги предметов (1=вкл, 0=выкл)                   
 USE_USER_NOTES         Пользовательские заметки (1=вкл, 0=выкл)                  0
 USE_USER_DICT          Пользовательский словарь замен (1=вкл, 0=выкл)            0
 USE_STAR               Интеграция со STAR (1=вкл, 0=выкл)                        1
+USE_MINING             Модуль майнинга (1=вкл, 0=выкл)                           1
 COLOR_TAGS_BLUE        Слова для синего тега (через ;)                           пусто
 COLOR_TAGS_GREEN       Слова для зелёного тега                                   Grade AAA;
 COLOR_TAGS_YELLOW      Слова для жёлтого тега                                    пусто
@@ -165,62 +175,66 @@ TITLE_FORMAT           Формат заголовков грузовых миссий (1-6)                  
     СТАРШИЙ ПЕРЕВОЗЧИК | ПЕРЕВОЗКА КРУПНОГАБАРИТНОГО | Port Olisar > Lorville
 
 
-7. Что вы увидите в консоли
+8. Что вы увидите в консоли
 ----------------------------
 
-SCLER v1.14
+-- Основной запуск --
+
+SCLER v1.15
 Reputation Awarded module is disabled.
 Scenario Progress Points module is disabled.
 User Notes module is disabled.
 User Dict module is disabled.
-Downloading STAR.bat...
-SCLER: Running STAR...
+SCLER: Running STAR v1.0.3...
 STAR completed.
 
 Using global.ini from STAR download: "C:\...\global.ini"
-Using global.ini from STAR download: "C:\...\global.ini"
 Downloading contracts.ini...
 Downloading ordnance.ini...
-scler.ps1 v1.14
+Downloading mining.ini...
+scler.ps1 v1.15
 Using cargo titles format: Direction | Rank | Haul
 
 Ordnance replaced:     136
 Color Tags added:      2
-BP Markers added:      280
-Descriptions added:    255 BP, 37 MBP, 651 reputation, 62 SPP,
-                       144 regional variants, 1482 item types,
-                       708 module classes, 366 weapon sizes, 30 cargo titles
+BP Markers added:      304
+Descriptions added:    276 BP (1 Repeat Only), 40 MBP, 680 reputation, 75 SPP,
+                       144 regional variants, 1632 item types,
+                       892 module classes, 369 weapon sizes, 30 cargo titles
+Mining replaced:       29
 User data added:       1 notes, 3 dict
-Total processed:       89008 lines, 3450 replacements, 1179 modified lines
+Total processed:       90121 lines, 3718 replacements, 1269 modified lines
 
 Backup: C:\...\global.ini.noblueprints.bak
 Done.
+Starting RSI Launcher...
 
-При запуске с ключом -s:
+-- Запуск с ключом -s --
+
 Using global.ini from command line: "C:\...\global.ini"
-scler.ps1 v1.14
+scler.ps1 v1.15
 
 User data added:       1 notes, 3 dict
 Total processed:       90121 lines, 4 replacements, 4 modified lines
 Done.
 
-При запуске с ключом -r:
+-- Запуск с ключом -r --
+
 Backup from: 19.07.2026 19:53
 Restore global.ini from this backup? Press Y to confirm, N to cancel.
         1 file(s) copied.
 Restored global.ini from backup.
 
+-- Если файл уже обработан --
+
+No modifications were necessary or possible. File global.ini kept unchanged.
+
 ---
 
-Total processed — общее количество строк в файле.
 Replacements — общее количество применённых замен.
 Modified lines — количество уникальных изменённых строк.
 
-Если файл уже обработан:
-No modifications were necessary or possible. File global.ini kept unchanged.
-
-
-8. Пользовательские заметки
+9. Пользовательские заметки
 ----------------------------
 
 Файл user_notes.ini позволяет добавлять собственные заметки к описаниям
@@ -230,17 +244,17 @@ No modifications were necessary or possible. File global.ini kept unchanged.
 иначе в игре вы получите нечитаемый текст.
 
 Для использования:
-1. Включите флаг USE_USER_NOTES=1 в SCLER.cfg.
-2. Отредактируйте файл user_notes.ini, добавив строки в формате:
+1) Включите флаг USE_USER_NOTES=1 в SCLER.cfg.
+2) Отредактируйте файл user_notes.ini, добавив строки в формате:
      ключ_миссии = текст заметки
-3. Запустите программу повторно.
+3) Запустите программу повторно.
 
 Как найти нужный ключ миссии:
 
-1. Откройте файл global.ini в текстовом редакторе.
-2. Найдите строку с текстом миссии, к которой хотите добавить заметку.
-3. Скопируйте часть строки до символа "=" — это ключ миссии.
-4. Вставьте ключ в файл user_notes.ini, после знака "=" напишите текст
+1) Откройте файл global.ini в текстовом редакторе.
+2) Найдите строку с текстом миссии, к которой хотите добавить заметку.
+3) Скопируйте часть строки до символа "=" — это ключ миссии.
+4) Вставьте ключ в файл user_notes.ini, после знака "=" напишите текст
    заметки (до 256 символов). Он будет добавлен в конец описания миссии
    после строки «Заметки».
 
@@ -252,7 +266,7 @@ TheCollector_Intro_Desc=Рога тундровых копионов могут быть найдены в тундре,
 например около Shubin Mining Facility SM0-13 или MT DataCenter KH3-AAE-L.
 
 
-9. Пользовательский словарь замен
+10. Пользовательский словарь замен
 ----------------------------------
 
 Файл user_dict.ini позволяет заменять любые строки в global.ini
@@ -266,10 +280,10 @@ TheCollector_Intro_Desc=Рога тундровых копионов могут быть найдены в тундре,
 **Внимание:** файл user_dict.ini должен быть в кодировке ANSI (Windows-1251).
 
 Для использования:
-1. Включите флаг USE_USER_DICT=1 в SCLER.cfg.
-2. Отредактируйте файл user_dict.ini, добавив строки в формате:
+1) Включите флаг USE_USER_DICT=1 в SCLER.cfg.
+2) Отредактируйте файл user_dict.ini, добавив строки в формате:
      ключ = значение
-3. Запустите программу.
+3) Запустите программу.
 
 Для быстрого применения только пользовательских данных
 без повторной обработки всего файла используйте ключ -s:
@@ -281,7 +295,8 @@ TheCollector_Intro_Desc=Рога тундровых копионов могут быть найдены в тундре,
     vehicle_NameRSI_Perseus=1.RSI Perseus
   Результат в игре: 1.RSI Perseus
 
-10. Возможные проблемы
+
+11. Возможные проблемы
 -----------------------
 
 Проблемы установки:
@@ -293,10 +308,12 @@ TheCollector_Intro_Desc=Рога тундровых копионов могут быть найдены в тундре,
   Переустановите программу.
 
 Файл global.ini:
-- Error: global.ini not found. Check the file path or place the file in
-  the program folder. — файл не найден ни по одному источнику.
-- Error: Source file is empty / too small — файл пуст или повреждён.
-  Скачайте актуальный файл локализации.
+- Error: global.ini not found — файл не найден ни по одному источнику.
+  Проверьте путь в SCLER.cfg (GLOBAL_INI_PATH) или запустите программу
+  с ключом -p для выбора файла вручную.
+- Error: Source file is too small — файл global.ini пуст или повреждён.
+  Убедитесь, что интеграция со STAR включена (USE_STAR=1), и запустите
+  программу повторно для скачивания актуального файла.
 - Error: global.ini is not writable — нет прав на запись или файл
   используется другим процессом. Закройте игру, проверьте права.
 - Error: Backup file not found — резервная копия не найдена при
@@ -304,28 +321,25 @@ TheCollector_Intro_Desc=Рога тундровых копионов могут быть найдены в тундре,
   к global.ini (GLOBAL_INI_PATH) и бекап существует.
 
 Интернет и загрузка:
-- Error: Failed to download contracts.ini — нет интернета или сервер
-  недоступен. Проверьте подключение или скачайте файл вручную
-  с https://github.com/MrKraken/StarStrings и поместите в папку с программой.
-- Error: contracts.ini is empty / does not contain required marker —
-  файл повреждён. Скачайте файл заново.
-- Warning: Failed to download ordnance.ini — файл не скачан, модуль
-  ракет и торпед пропущен.
-- Warning: ordnance.ini is empty / does not contain required marker —
-  файл повреждён, модуль пропущен.
-- Warning: Failed to download STAR.bat — не удалось скачать скрипт STAR.
-  Интеграция со STAR отключена. Проверьте подключение к интернету.
-- Warning: STAR.bat is too small — скачанный файл STAR повреждён.
-  Интеграция со STAR отключена. Удалите STAR.bat и запустите программу
-  повторно.
-- Warning: STAR.bat does not appear to be valid — скачанный файл
-  не является скриптом STAR. Интеграция со STAR отключена.
+- Ошибки «Failed to download contracts.ini / ordnance.ini / mining.ini» —
+  нет интернета или сервер недоступен. Проверьте подключение и запустите
+  программу повторно.
+- Предупреждения «is empty» или «does not contain required marker» —
+  скачанный файл данных (contracts, ordnance, mining) повреждён.
+  Запустите программу повторно для скачивания заново.
+- Проблемы со STAR.bat (не скачался, повреждён, не прошёл проверку) —
+  интеграция со STAR отключена. Проверьте подключение к интернету,
+  удалите STAR.bat (если есть) и запустите программу повторно.
 
 Конфигурация:
 - Warning: Could not create config file. Using default settings —
   не удалось создать файл настроек. Используются стандартные параметры.
 - Warning: Value for COLOR_TAGS_X is too long. Using empty —
   слишком длинное значение цветового тега. Значение сброшено.
+- Ошибки «URL_... not configured» — не настроены адреса для скачивания.
+  Проверьте файл urls.cfg. При повреждении возьмите файл из дистрибутива.
+- Warning: URL_STAR_API not configured — не настроен URL для проверки
+  версий STAR. Используется текущая версия STAR без проверки обновлений.
 
 Пользовательские данные:
 - Warning: USE_USER_NOTES enabled but user_notes.ini not found —
@@ -355,12 +369,12 @@ TheCollector_Intro_Desc=Рога тундровых копионов могут быть найдены в тундре,
 - Error: PowerShell error occurred — внутренняя ошибка PowerShell.
 - Ошибки «korean_ is not recognized» или «system cannot find the path»:
   возникают из-за скобок в пути к папке korean_(south_korea).
-  Разместите программу в папке без скобок, либо указывайте полный путь
-  к global.ini в аргументе командной строки в двойных кавычках:
+  Указывайте полный путь к global.ini в аргументе командной строки
+  в двойных кавычках:
   SCLER.bat "D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
 
 
-11. Список обрабатываемых тегов
+12. Список обрабатываемых тегов
 --------------------------------
 
 Английский                                Русский
@@ -375,6 +389,8 @@ Reputation Awarded:                       Репутация за выполнение:
 Scenario Progress Points N                Очки прогресса сценария: N
 Типы модулей (Cooler, Power Plant и др.)  Типы модулей с указанием класса
                                           (Охладитель CIV-1A), (Генератор щита MIL-2A)
+Ресурсы майнинга                          Названия ресурсов со значением сигнатуры,
+                                          например: Bexalite (RS 3600), Ice (Raw)
 
 Цветные теги предметов (Grade AAA, Pure и др.) настраиваются
 в конфигурационном файле SCLER.cfg.

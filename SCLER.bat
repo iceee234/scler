@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo SCLER v1.14
+echo SCLER v1.15
 
 if /i "%~1"=="-?" goto :help
 if /i "%~1"=="-h" goto :help
@@ -10,7 +10,7 @@ goto :main
 :help
 cls
 echo =======================================================================================================
-echo SCLER - SC Localization Enhancer Russian v1.14
+echo SCLER - SC Localization Enhancer Russian v1.15
 echo =======================================================================================================
 echo.
 echo Usage: SCLER.bat [source_file] [options]
@@ -118,6 +118,8 @@ if not exist "!CONFIG_FILE!" (
         echo USE_USER_DICT=0
         echo # Use STAR for automatic global.ini download
         echo USE_STAR=1
+        echo # Mining module ^(1 = enabled, 0 = disabled^)
+        echo USE_MINING=1
         echo.
         echo # Commodity color words ^(semicolon-separated^)
         echo # Known commodity words: Adult; Apex; Grade A; Grade AA; Grade AAA; Grade B; Grade C; Juvenile; Ore; Pure; R; Raw;
@@ -153,6 +155,7 @@ if not exist "!CONFIG_FILE!" (
     set "USE_USER_NOTES=0"
     set "USE_USER_DICT=0"
     set "USE_STAR=1"
+    set "USE_MINING=1"
     set "COLOR_TAGS_BLUE="
     set "COLOR_TAGS_GREEN=Grade AAA;"
     set "COLOR_TAGS_YELLOW="
@@ -172,6 +175,7 @@ set "CFG_USE_COLOR_TAGS="
 set "CFG_USE_USER_NOTES="
 set "CFG_USE_USER_DICT="
 set "CFG_USE_STAR="
+set "CFG_USE_MINING="
 set "CFG_LIVE_PATH="
 set "CFG_COLOR_TAGS_BLUE="
 set "CFG_COLOR_TAGS_GREEN="
@@ -231,6 +235,10 @@ for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
             if "!val: =!"=="1" set "CFG_USE_STAR=1"
             if "!val: =!"=="0" set "CFG_USE_STAR=0"
         )
+        if /i "!key!"=="USE_MINING" (
+            if "!val: =!"=="1" set "CFG_USE_MINING=1"
+            if "!val: =!"=="0" set "CFG_USE_MINING=0"
+        )
         if /i "!key!"=="LIVE_PATH" (
             set "CFG_LIVE_PATH=!val!"
         )
@@ -246,6 +254,7 @@ if defined CFG_USE_COLOR_TAGS   (set "USE_COLOR_TAGS=!CFG_USE_COLOR_TAGS!")   el
 if defined CFG_USE_USER_DICT    (set "USE_USER_DICT=!CFG_USE_USER_DICT!")    else (set "USE_USER_DICT=0")
 if defined CFG_USE_CARGO_TITLES (set "USE_CARGO_TITLES=!CFG_USE_CARGO_TITLES!") else (set "USE_CARGO_TITLES=1")
 if defined CFG_USE_STAR         (set "USE_STAR=!CFG_USE_STAR!")              else (set "USE_STAR=1")
+if defined CFG_USE_MINING       (set "USE_MINING=!CFG_USE_MINING!")          else (set "USE_MINING=1")
 
 :: Validate TITLE_FORMAT
 if not defined CFG_TITLE_FORMAT set "CFG_TITLE_FORMAT=1"
@@ -290,6 +299,9 @@ if "%USE_USER_DICT%"=="0" (
 if "%USE_STAR%"=="0" (
     echo STAR integration is disabled.
 )
+if "%USE_MINING%"=="0" (
+    echo Mining module is disabled.
+)
 
 if "%USE_USER_NOTES%"=="1" (
     if not exist "!SCRIPT_DIR!\user_notes.ini" (
@@ -304,19 +316,61 @@ if "%USE_USER_DICT%"=="1" (
     )
 )
 
+:: ---------- Load URLs ----------
+set "URLS_FILE=!SCRIPT_DIR!\urls.cfg"
+
+if exist "!URLS_FILE!" (
+    for /f "usebackq tokens=1,* delims==" %%a in ("!URLS_FILE!") do (
+        set "key=%%a"
+        set "val=%%b"
+        if not "!key!"=="" if not "!key:~0,1!"=="#" (
+            if /i "!key!"=="URL_STAR"       set "URL_STAR=!val!"
+            if /i "!key!"=="URL_STAR_API"   set "URL_STAR_API=!val!"
+            if /i "!key!"=="URL_CONTRACTS"  set "URL_CONTRACTS=!val!"
+            if /i "!key!"=="URL_ORDNANCE"   set "URL_ORDNANCE=!val!"
+            if /i "!key!"=="URL_MINING"     set "URL_MINING=!val!"
+        )
+    )
+)
+
 :: ---------- Download and validate STAR.bat ----------
-set "URL_STAR=https://raw.githubusercontent.com/ssvasilev/STAR/main/STAR.bat"
 set "STAR_FILE=!SCRIPT_DIR!\STAR.bat"
 
 if not "%CUSTOM_ONLY%"=="1" (
-    if not exist "!STAR_FILE!" (
-        echo Downloading STAR.bat...
-        powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_STAR%' -OutFile '!STAR_FILE!' -UseBasicParsing" >nul 2>&1
+    if not defined URL_STAR (
+        echo Warning: URL_STAR not configured. STAR integration skipped.
+        set "USE_STAR=0"
+        goto :star_done
+    )
+
+    set "NEED_DOWNLOAD=1"
+
+    :: Check GitHub for latest version
+    for /f "usebackq delims=" %%v in (`powershell -ExecutionPolicy Bypass -Command "try { (Invoke-RestMethod -Uri '!URL_STAR_API!').tag_name } catch { }"`) do set "LATEST_STAR_VERSION=%%v"
+
+    if defined LATEST_STAR_VERSION (
+        :: Check local version if file exists
+        if exist "!STAR_FILE!" (
+            set "LOCAL_STAR_VERSION="
+            for /f "usebackq tokens=2 delims==" %%l in (`findstr /b /c:"set STAR_VERSION=" "!STAR_FILE!" 2^>nul`) do set "LOCAL_STAR_VERSION=%%~l"
+            if "!LOCAL_STAR_VERSION!"=="!LATEST_STAR_VERSION!" (
+                set "NEED_DOWNLOAD=0"
+            )
+        )
+    )
+
+    if "!NEED_DOWNLOAD!"=="1" (
+        echo Downloading STAR.bat ...
+        powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '!URL_STAR!' -OutFile '!STAR_FILE!' -UseBasicParsing" >nul 2>&1
         if errorlevel 1 (
             echo Warning: Failed to download STAR.bat. STAR integration skipped.
             set "USE_STAR=0"
             goto :star_done
         )
+
+        powershell -ExecutionPolicy Bypass -Command "$lines = [System.IO.File]::ReadAllLines('!STAR_FILE!', [System.Text.Encoding]::UTF8); if ($lines[1] -notmatch 'STAR_VERSION=') { $verLine = 'set STAR_VERSION=!LATEST_STAR_VERSION!'; $newLines = @($lines[0]; $verLine) + $lines[1..($lines.Length-1)]; $utf8NoBom = New-Object System.Text.UTF8Encoding($false); [System.IO.File]::WriteAllLines('!STAR_FILE!', $newLines, $utf8NoBom) }" >nul 2>&1
+
+        powershell -ExecutionPolicy Bypass -Command "$content = [System.IO.File]::ReadAllText('!STAR_FILE!', [System.Text.Encoding]::UTF8); $content = $content -replace \"`r`n\", \"`n\" -replace \"`n\", \"`r`n\"; $utf8NoBom = New-Object System.Text.UTF8Encoding($false); [System.IO.File]::WriteAllText('!STAR_FILE!', $content, $utf8NoBom)" >nul 2>&1
 
         powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '!STAR_FILE!').Length -lt 30720) { exit 1 } }" >nul 2>&1
         if errorlevel 1 (
@@ -331,8 +385,6 @@ if not "%CUSTOM_ONLY%"=="1" (
             set "USE_STAR=0"
             goto :star_done
         )
-
-        powershell -ExecutionPolicy Bypass -Command "$content = [System.IO.File]::ReadAllText('!STAR_FILE!', [System.Text.Encoding]::UTF8); $content = $content -replace \"`r`n\", \"`n\" -replace \"`n\", \"`r`n\"; $utf8NoBom = New-Object System.Text.UTF8Encoding($false); [System.IO.File]::WriteAllText('!STAR_FILE!', $content, $utf8NoBom)" >nul 2>&1
     )
 )
 
@@ -482,16 +534,23 @@ if errorlevel 1 (
 if "%CUSTOM_ONLY%"=="1" (
     set "CONTRACTS_FILE="
     set "ORDNANCE_FILE="
+    set "MINING_FILE="
     goto :skip_downloads
 )
 
 :: ---------- Download and validate contracts.ini ----------
-set "URL_CONTRACTS=https://raw.githubusercontent.com/MrKraken/StarStrings/master/src/For_Tool_Creators/contracts.ini"
+if not defined URL_CONTRACTS (
+    echo.
+    echo Error: URL_CONTRACTS not configured. Check urls.cfg.
+    pause
+    exit /b 1
+)
+
 set "CONTRACTS_FILE=%SCRIPT_DIR%\contracts.ini"
 
 if not exist "%CONTRACTS_FILE%" (
     echo Downloading contracts.ini...
-    powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_CONTRACTS%' -OutFile '%CONTRACTS_FILE%' -UseBasicParsing" >nul 2>&1
+    powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '!URL_CONTRACTS!' -OutFile '%CONTRACTS_FILE%' -UseBasicParsing" >nul 2>&1
     if errorlevel 1 (
         echo.
         echo Error: Failed to download contracts.ini.
@@ -519,15 +578,21 @@ if errorlevel 1 (
 )
 
 :: ---------- Download and validate ordnance.ini ----------
-set "URL_ORDNANCE=https://raw.githubusercontent.com/MrKraken/StarStrings/master/src/For_Tool_Creators/ordnance.ini"
+if not defined URL_ORDNANCE (
+    echo Warning: URL_ORDNANCE not configured. Ordnance module skipped.
+    set "ORDNANCE_FILE="
+    goto :skip_ordnance
+)
+
 set "ORDNANCE_FILE=%SCRIPT_DIR%\ordnance.ini"
 
 if not exist "%ORDNANCE_FILE%" (
     echo Downloading ordnance.ini...
-    powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '%URL_ORDNANCE%' -OutFile '%ORDNANCE_FILE%' -UseBasicParsing" >nul 2>&1
+    powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '!URL_ORDNANCE!' -OutFile '%ORDNANCE_FILE%' -UseBasicParsing" >nul 2>&1
     if errorlevel 1 (
         echo Warning: Failed to download ordnance.ini. Ordnance module skipped.
         set "ORDNANCE_FILE="
+        goto :skip_ordnance
     )
 ) else (
     echo Using ordnance.ini from local file.
@@ -549,6 +614,41 @@ if defined ORDNANCE_FILE (
     )
 )
 
+:skip_ordnance
+
+:: ---------- Download and validate mining.ini ----------
+if "%USE_MINING%"=="1" (
+    if not defined URL_MINING (
+        echo Warning: URL_MINING not configured. Mining module skipped.
+        set "USE_MINING=0"
+        goto :skip_mining
+    )
+
+    set "MINING_FILE=!SCRIPT_DIR!\mining.ini"
+
+    if not exist "!MINING_FILE!" (
+        echo Downloading mining.ini...
+        powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SC-RU-Updater' } -Uri '!URL_MINING!' -OutFile '!MINING_FILE!' -UseBasicParsing" >nul 2>&1
+        if errorlevel 1 (
+            echo Warning: Failed to download mining.ini. Mining module skipped.
+            set "MINING_FILE="
+            goto :skip_mining
+        )
+    ) else (
+        echo Using mining.ini from local file.
+    )
+
+    if defined MINING_FILE (
+        powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '!MINING_FILE!').Length -lt 10) { exit 1 } }" >nul 2>&1
+        if errorlevel 1 (
+            echo Warning: mining.ini is empty. Mining module skipped.
+            set "MINING_FILE="
+        )
+    )
+)
+
+:skip_mining
+
 :skip_downloads
 if not exist "!GLOBAL_INI!" (
     echo.
@@ -558,13 +658,23 @@ if not exist "!GLOBAL_INI!" (
 )
 
 :: ---------- Run scler.ps1 ----------
-powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scler.ps1" -file1 "%GLOBAL_INI%" -file2 "%CONTRACTS_FILE%" -ordnancePath "%ORDNANCE_FILE%" -useColorTags %USE_COLOR_TAGS% -useRpAwardTag %USE_RP_AWARD_TAG% -useSppTag %USE_SPP_TAG% -useUserNotes %USE_USER_NOTES% -colorBlue "%COLOR_TAGS_BLUE%" -colorGreen "%COLOR_TAGS_GREEN%" -colorYellow "%COLOR_TAGS_YELLOW%" -colorRed "%COLOR_TAGS_RED%" -titleFormat "!TITLE_FORMAT!" -useCargoTitles !USE_CARGO_TITLES! -useUserDict !USE_USER_DICT! -customOnly !CUSTOM_ONLY!
+powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%\scler.ps1" -file1 "%GLOBAL_INI%" -file2 "%CONTRACTS_FILE%" -ordnancePath "%ORDNANCE_FILE%" -miningPath "%MINING_FILE%" -useColorTags %USE_COLOR_TAGS% -useRpAwardTag %USE_RP_AWARD_TAG% -useSppTag %USE_SPP_TAG% -useUserNotes %USE_USER_NOTES% -useMining %USE_MINING% -colorBlue "%COLOR_TAGS_BLUE%" -colorGreen "%COLOR_TAGS_GREEN%" -colorYellow "%COLOR_TAGS_YELLOW%" -colorRed "%COLOR_TAGS_RED%" -titleFormat "!TITLE_FORMAT!" -useCargoTitles !USE_CARGO_TITLES! -useUserDict !USE_USER_DICT! -customOnly !CUSTOM_ONLY!
 if errorlevel 1 echo Error: PowerShell error occurred.
 
 :: ---------- Cleanup ----------
 if exist "%CONTRACTS_FILE%" del "%CONTRACTS_FILE%" 2>nul
 if exist "%ORDNANCE_FILE%" del "%ORDNANCE_FILE%" 2>nul
+if exist "!MINING_FILE!" del "!MINING_FILE!" 2>nul
 echo Done.
+
+:: ---------- Launch RSI Launcher ----------
+if "!USE_STAR!"=="1" if defined LAUNCHER_PATH (
+    if exist "!LAUNCHER_PATH!\RSI Launcher.exe" (
+        echo Starting RSI Launcher...
+        start "" "!LAUNCHER_PATH!\RSI Launcher.exe"
+    )
+)
+
 pause
 exit /b
 
@@ -576,7 +686,14 @@ if not exist "!SCRIPT_DIR!\STAR.bat" (
     goto :eof
 )
 
-echo SCLER: Running STAR...
+set "STAR_VER="
+for /f "usebackq tokens=2 delims==" %%v in (`findstr /b /c:"set STAR_VERSION=" "!SCRIPT_DIR!\STAR.bat" 2^>nul`) do set "STAR_VER=%%~v"
+if defined STAR_VER (
+    echo SCLER: Running STAR !STAR_VER!...
+) else (
+    echo SCLER: Running STAR...
+)
+
 start "" /wait cmd /c "!SCRIPT_DIR!\STAR.bat" -no-launch
 
 echo STAR completed.
@@ -588,6 +705,9 @@ if exist "!SCRIPT_DIR!\star_config.cfg" (
         if "%%a"=="LIVE_PATH" (
             set "STAR_LIVE_PATH=%%b"
             set "CFG_LIVE_PATH=%%b"
+        )
+        if "%%a"=="LAUNCHER_PATH" (
+            set "LAUNCHER_PATH=%%b"
         )
     )
 )

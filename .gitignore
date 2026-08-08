@@ -1,13 +1,19 @@
-# Файл локализации (пользователь скачивает отдельно)
+# Файл локализации
 global.ini
 
-# Конфиг пользователя
+# Конфиги пользователя
 SCLER.cfg
-SC_Quest_Patcher.cfg
+star_config.cfg
+
+# Пользовательские данные
+user_notes.ini
+user_dict.ini
 
 # Скачанные файлы
 contracts.ini
 ordnance.ini
+mining.ini
+STAR.bat
 
 # Бэкапы
 *.noblueprints.bak

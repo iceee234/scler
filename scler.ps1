@@ -1,15 +1,17 @@
 # scler.ps1 - main processing script for global.ini
-# Called from SCLER_*.bat
-# v1.14
+# Called from SCLER.bat
+# v1.15
 
 param(
     $file1,
     $file2,
     $ordnancePath,
+    $miningPath,
     $useColorTags,
     $useRpAwardTag,
     $useSppTag,
     $useUserNotes,
+    $useMining,
     $colorBlue = '',
     $colorGreen = '',
     $colorYellow = '',
@@ -20,7 +22,7 @@ param(
     $customOnly = '0'
 )
 
-Write-Host "scler.ps1 v1.14"
+Write-Host "scler.ps1 v1.15"
 
 $useColorTags = $useColorTags -eq '1'
 $useRpAwardTag = $useRpAwardTag -eq '1'
@@ -28,6 +30,7 @@ $useSppTag = $useSppTag -eq '1'
 $useUserNotes = $useUserNotes -eq '1'
 $useCargoTitles = $useCargoTitles -eq '1'
 $useUserDict = $useUserDict -eq '1'
+$useMining = $useMining -eq '1'
 $customOnly = $customOnly -eq '1'
 $titleFormat = $titleFormat.Trim()
 
@@ -467,6 +470,7 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
             if ($entry.SuffixRaw) {
                 if ($entry.SuffixRaw -eq 'Only') { $rusSuffix = ' (' + $locOnly + ')' }
                 elseif ($entry.SuffixRaw -eq 'Repeat Only') { $rusSuffix = ' (' + $locRepeatOnly + ')'; $blueprintsRepeatOnly++ }
+                elseif ($entry.SuffixRaw -match '^(.+)\s+Only$') { $rusSuffix = ' (' + $locOnly + ' ' + $Matches[1] + ')' }
                 else { $rusSuffix = ' (' + $locOnly + ' ' + $entry.SuffixRaw + ')' }
             }
             $rusMarker = '<EM' + $entry.Color + '>' + $locPotential + $rusSuffix + '</EM' + $entry.Color + '>'
@@ -706,6 +710,53 @@ if ($useCargoTitles) {
 }
 
 # --------------------------------------------------
+# Stage 7: Mining
+# --------------------------------------------------
+$miningReplaced = 0
+if (-not $customOnly -and $useMining) {
+    if (Test-Path $miningPath) {
+        $mining = @{}
+        Get-Content $miningPath -Encoding UTF8 | ForEach-Object {
+            $p = $_ -split '=', 2
+            if ($p.Count -eq 2) {
+                $k = $p[0].Trim()
+                if ($k -match 'items_commodities' -or $k -match 'mineabletype_') {
+                    $mining[$k] = $p[1]
+                }
+            }
+        }
+        if ($mining.Count -gt 0) {
+            $lineIndex = @{}
+            for ($i = 0; $i -lt $lines.Count; $i++) {
+                $p = $lines[$i] -split '=', 2
+                if ($p.Count -eq 2) {
+                    $k = $p[0].Trim()
+                    if (-not $lineIndex.ContainsKey($k)) { $lineIndex[$k] = $i }
+                }
+            }
+            $miningMissing = @()
+            foreach ($k in $mining.Keys) {
+                if ($lineIndex.ContainsKey($k)) {
+                    $i = $lineIndex[$k]
+                    $p = $lines[$i] -split '=', 2
+                    $newValue = $mining[$k]
+                    if ($newValue -ne $p[1]) {
+                        $lines[$i] = $k + '=' + $newValue
+                        $miningReplaced++
+                        $null = $modifiedLineIndices.Add($i)
+                    }
+                } else {
+                    $miningMissing += $k
+                }
+            }
+            if ($miningMissing.Count -gt 0) {
+                Write-Host "Warning: $($miningMissing.Count) mining keys not found in global.ini. The localization file may be outdated."
+            }
+        }
+    }
+}
+
+# --------------------------------------------------
 # Stage 98: User notes
 # --------------------------------------------------
 $userNotesAdded = 0
@@ -826,7 +877,7 @@ if ($unprocessedCount -gt 0) {
 # --------------------------------------------------
 # Save changes, create backup, display statistics
 # --------------------------------------------------
-$totalReplaced = $blueprintsAdded + $bpChanged + $ordnanceReplaced + $colorTagsAdded + $mbpAdded + $rpAwardedAdded + $sppAdded + $regionalVariantsAdded + $itemTypesAdded + $userNotesAdded + $weaponSizesAdded + $cargoTitlesEnriched + $userDictApplied
+$totalReplaced = $blueprintsAdded + $bpChanged + $ordnanceReplaced + $colorTagsAdded + $mbpAdded + $rpAwardedAdded + $sppAdded + $regionalVariantsAdded + $itemTypesAdded + $userNotesAdded + $weaponSizesAdded + $cargoTitlesEnriched + $userDictApplied + $miningReplaced
 $changedCount = $modifiedLineIndices.Count
 if ($changedCount -eq 0) {
     Write-Host "`nNo modifications were necessary or possible. File global.ini kept unchanged."
@@ -937,6 +988,7 @@ if ($changedCount -eq 0) {
         $descDetails += ", $regionalVariantsAdded regional variants, $itemTypesAdded item types, $moduleClassesAdded module classes, $weaponSizesAdded weapon sizes"
         if ($useCargoTitles) { $descDetails += ", $cargoTitlesEnriched cargo titles" }
         Write-Host "Descriptions added:    $descDetails"
+        if ($useMining) { Write-Host "Mining replaced:       $miningReplaced" }
         $userDetails = @()
         if ($useUserNotes) { $userDetails += "$userNotesAdded notes" }
         if ($useUserDict) { $userDetails += "$userDictApplied dict" }
