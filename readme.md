@@ -51,6 +51,11 @@
 - PowerShell 5.1+
 - Доступ к GitHub для скачивания contracts.ini, ordnance.ini, mining.ini и STAR.bat
 
+## Используемые ресурсы
+
+- [STAR](https://github.com/ssvasilev/STAR) — скачивание и обновление файла локализации
+- [Русскоязычная локализация](https://github.com/n1ghter/StarCitizenRu) — файл локализации от сообщества
+
 ## Автор
 
 iceee23 (dhhq2h9bkry3@mail.ru)

@@ -128,7 +128,7 @@ $additionalItemTypes = @{
 # Russian localization texts (Base64-encoded)
 $locPotential        = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0JTQvtGB0YLRg9C/0L3Ri9C1INGH0LXRgNGC0LXQttC4'))
 $locBP               = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0KfQtdGA0YLQtdC20Lg='))
-$extraFrontend       = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0KDQsNGB0YjQuNGA0LXQvdC90LDRjyDQuNC90YTQvtGA0LzQsNGG0LjRjyDQviDQvdCw0LPRgNCw0LTQsNGFINCyINC30LDQtNCw0L3QuNGP0YU='))
+$extraFrontend       = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0JTQvtC/0L7Qu9C90LXQvdC+INC/0YDQvtCz0YDQsNC80LzQvtC5IFNDTEVS'))
 $locOnly             = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0YLQvtC70YzQutC+'))
 $locRepeatOnly       = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0YLQvtC70YzQutC+INC/0L7QstGC0L7RgA=='))
 $locMbp              = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0JzQvdC+0LbQtdGB0YLQstC10L3QvdGL0LUg0L/Rg9C70Ysg0YfQtdGA0YLQtdC20LXQuQ=='))
