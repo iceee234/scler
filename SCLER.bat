@@ -385,6 +385,8 @@ if not "%CUSTOM_ONLY%"=="1" (
             set "USE_STAR=0"
             goto :star_done
         )
+
+        attrib +h "!STAR_FILE!" >nul 2>&1
     )
 )
 
