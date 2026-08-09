@@ -673,7 +673,7 @@ echo Done.
 if "!USE_STAR!"=="1" if defined LAUNCHER_PATH (
     if exist "!LAUNCHER_PATH!\RSI Launcher.exe" (
         echo Starting RSI Launcher...
-        start "" "!LAUNCHER_PATH!\RSI Launcher.exe"
+        powershell -Command "Start-Process '!LAUNCHER_PATH!\RSI Launcher.exe'"
     )
 )
 
