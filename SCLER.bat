@@ -98,6 +98,7 @@ if not defined SOURCE_PATH if not "%~1"=="" (
 :: ---------- Check for updates ----------
 if not "%CUSTOM_ONLY%"=="0" goto :skip_update
 if not "%RESTORE_MODE%"=="0" goto :skip_update
+if not "%PICK_PATH%"=="0" goto :skip_update
 
 set "URL_API=https://api.github.com/repos/iceee234/scler/releases/latest"
 set "URL_DOWNLOAD=https://github.com/iceee234/scler/archive/refs/tags/latest.zip"
