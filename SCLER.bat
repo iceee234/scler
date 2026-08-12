@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo SCLER v1.15
+echo SCLER v1.16
 
 if /i "%~1"=="-?" goto :help
 if /i "%~1"=="-h" goto :help
@@ -10,7 +10,7 @@ goto :main
 :help
 cls
 echo =======================================================================================================
-echo SCLER - SC Localization Enhancer Russian v1.15
+echo SCLER - SC Localization Enhancer Russian v1.16
 echo =======================================================================================================
 echo.
 echo Usage: SCLER.bat [source_file] [options]
@@ -18,10 +18,11 @@ echo.
 echo   source_file     - Path to global.ini (optional)
 echo.
 echo Options:
+echo   -?, -h, --help  - Show this help
 echo   -s, --skip      - Apply only user notes and dictionary
 echo   -p, --path      - Pick global.ini via file dialog
 echo   -r, --restore   - Restore global.ini from backup
-echo   -?, -h, --help  - Show this help
+echo   -u, --update    - Force update check
 echo.
 echo Examples:
 echo   SCLER.bat
@@ -38,18 +39,32 @@ exit /b
 :main
 setlocal enabledelayedexpansion
 
+set "SCRIPT_DIR=%~dp0"
+if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
+set "CONFIG_FILE=!SCRIPT_DIR!\SCLER.cfg"
+
+:: Check for new updater version
+if exist "!SCRIPT_DIR!\_updater_new.bat" (
+    copy /y "!SCRIPT_DIR!\_updater_new.bat" "!SCRIPT_DIR!\_updater.bat" >nul
+    del "!SCRIPT_DIR!\_updater_new.bat" >nul
+    attrib +h "!SCRIPT_DIR!\_updater.bat" >nul 2>&1
+)
+
 set "RESTORE_MODE=0"
 set "CUSTOM_ONLY=0"
 set "PICK_PATH=0"
 set "SOURCE_PATH="
+set "FORCE_UPDATE=0"
 
 :: Check %1 for key
-if /i "%~1"=="-s"      set "CUSTOM_ONLY=1"
-if /i "%~1"=="--skip"  set "CUSTOM_ONLY=1"
-if /i "%~1"=="-p"      set "PICK_PATH=1"
-if /i "%~1"=="--path"  set "PICK_PATH=1"
-if /i "%~1"=="-r"      set "RESTORE_MODE=1"
-if /i "%~1"=="--restore" set "RESTORE_MODE=1"
+if /i "%~1"=="-s"         set "CUSTOM_ONLY=1"
+if /i "%~1"=="--skip"     set "CUSTOM_ONLY=1"
+if /i "%~1"=="-p"         set "PICK_PATH=1"
+if /i "%~1"=="--path"     set "PICK_PATH=1"
+if /i "%~1"=="-r"         set "RESTORE_MODE=1"
+if /i "%~1"=="--restore"  set "RESTORE_MODE=1"
+if /i "%~1"=="-u"         set "FORCE_UPDATE=1"
+if /i "%~1"=="--update"   set "FORCE_UPDATE=1"
 
 :: If %1 was -s or -r, %2 is the path
 if "%CUSTOM_ONLY%"=="1" if not "%~2"=="" (
@@ -80,15 +95,89 @@ if not defined SOURCE_PATH if not "%~1"=="" (
     if "!FIRST_CHAR!" neq "-" set "SOURCE_PATH=%~f1"
 )
 
+:: ---------- Check for updates ----------
+if not "%CUSTOM_ONLY%"=="0" goto :skip_update
+if not "%RESTORE_MODE%"=="0" goto :skip_update
+
+set "URL_API=https://api.github.com/repos/iceee234/scler/releases/latest"
+set "URL_DOWNLOAD=https://github.com/iceee234/scler/archive/refs/tags/latest.zip"
+
+:: Force update requested
+if "!FORCE_UPDATE!"=="1" (
+    powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; $cfg = $cfg -replace 'UPDATE_FAILED=.*', 'UPDATE_FAILED=0' -replace 'UPDATE_ATTEMPTS=.*', 'UPDATE_ATTEMPTS=0'; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)"
+    echo Forced update check...
+)
+
+:: Check if update is blocked
+if defined CFG_UPDATE_FAILED (
+    if "!CFG_UPDATE_FAILED!"=="1" (
+        echo.
+        echo !!! Previous update attempts failed. Update check skipped.
+        echo !!! Run SCLER.bat -u to force update check.
+        echo.
+        goto :skip_update
+    )
+)
+
+:: Check for pending update
+if exist "!SCRIPT_DIR!\update.zip" (
+    echo Pending update found. Starting updater...
+    powershell -Command "Start-Process '!SCRIPT_DIR!\_updater.bat'"
+    exit
+)
+
+echo Checking for updates...
+powershell -ExecutionPolicy Bypass -Command "try { $latest = (Invoke-RestMethod -Uri '!URL_API!').published_at; $local = (Get-Item '!SCRIPT_DIR!\SCLER.bat').LastWriteTimeUtc.ToString('yyyy-MM-ddTHH:mm:ssZ'); if ($latest -gt $local) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+if not errorlevel 1 (
+    echo Update available. Downloading...
+    powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SCLR-Updater' } -Uri '!URL_DOWNLOAD!' -OutFile '!SCRIPT_DIR!\update.zip' -UseBasicParsing" >nul 2>&1
+
+    if exist "!SCRIPT_DIR!\update.zip" (
+        powershell -ExecutionPolicy Bypass -Command "if ((Get-Item -Force '!SCRIPT_DIR!\update.zip').Length -lt 1024) { exit 1 }" >nul 2>&1
+        if errorlevel 1 (
+            echo.
+            echo Error: Downloaded update is damaged. Please try again later.
+            del "!SCRIPT_DIR!\update.zip" >nul 2>&1
+            pause
+            exit /b 1
+        )
+        if exist "!SCRIPT_DIR!\_updater.bat" (
+            powershell -ExecutionPolicy Bypass -Command "if ((Get-Item -Force '!SCRIPT_DIR!\_updater.bat').Length -lt 2048) { exit 1 }" >nul 2>&1
+            if errorlevel 1 (
+                echo.
+                echo Error: _updater.bat is damaged. Please reinstall SCLER from GitHub.
+                echo https://github.com/iceee234/scler/releases
+                del "!SCRIPT_DIR!\update.zip" >nul 2>&1
+                pause
+                exit /b 1
+            )
+        )
+        if not exist "!SCRIPT_DIR!\_updater.bat" (
+            echo.
+            echo Error: _updater.bat not found. Update cannot be completed.
+            echo Please reinstall SCLER from GitHub.
+            echo https://github.com/iceee234/scler/releases
+            del "!SCRIPT_DIR!\update.zip" >nul 2>&1
+            pause
+            exit /b 1
+        )
+        echo This window will close in 3 seconds...
+        timeout /t 3 /nobreak >nul
+        powershell -Command "Start-Process '!SCRIPT_DIR!\_updater.bat'"
+        exit
+    )
+) else (
+    echo No updates found.
+)
+
+:skip_update
+
 powershell -? >nul 2>&1 || (
     echo.
     echo Error: PowerShell is required. This script cannot run without it.
     pause
     exit /b 1
 )
-
-set "SCRIPT_DIR=%~dp0"
-if "%SCRIPT_DIR:~-1%"=="\" set "SCRIPT_DIR=%SCRIPT_DIR:~0,-1%"
 
 if not exist "!SCRIPT_DIR!\scler.ps1" (
     echo.
@@ -97,77 +186,16 @@ if not exist "!SCRIPT_DIR!\scler.ps1" (
     exit /b 1
 )
 
-set "CONFIG_FILE=!SCRIPT_DIR!\SCLER.cfg"
-
 :: ---------- Config processing ----------
 if not exist "!CONFIG_FILE!" (
     echo Creating default configuration file...
-    chcp 1251 >nul
     (
         echo # SCLER - user configuration file
         echo.
-        echo # Reputation Awarded tag addition ^(1 = enabled, 0 = disabled^)
-        echo USE_RP_AWARD_TAG=0
-        echo # Scenario Progress Points tag addition ^(1 = enabled, 0 = disabled^)
-        echo USE_SPP_TAG=0
-        echo # Commodity color tags ^(1 = enabled, 0 = disabled^)
-        echo USE_COLOR_TAGS=1
-        echo # User notes addition ^(1 = enabled, 0 = disabled^)
-        echo USE_USER_NOTES=0
-        echo # User dictionary replacements ^(1 = enabled, 0 = disabled^)
-        echo USE_USER_DICT=0
-        echo # Use STAR for automatic global.ini download
-        echo USE_STAR=1
-        echo # Mining module ^(1 = enabled, 0 = disabled^)
-        echo USE_MINING=1
-        echo.
-        echo # Commodity color words ^(semicolon-separated^)
-        echo # Known commodity words: Adult; Apex; Grade A; Grade AA; Grade AAA; Grade B; Grade C; Juvenile; Ore; Pure; R; Raw;
-        echo COLOR_TAGS_BLUE=
-        echo COLOR_TAGS_GREEN=Grade AAA;
-        echo COLOR_TAGS_YELLOW=
-        echo COLOR_TAGS_RED=Pure;
-        echo.
-        echo # Cargo titles enrichment ^(1 = enabled, 0 = disabled^)
-        echo USE_CARGO_TITLES=1
-        echo.
-        echo # Cargo title format:
-        echo # 1 ^= Direction ^| Rank ^| Haul        ^(default^)
-        echo # 2 ^= Direction ^| Haul ^| Rank
-        echo # 3 ^= Rank ^| Haul ^| Direction
-        echo # 4 ^= Rank ^| Direction ^| Haul
-        echo # 5 ^= Haul ^| Rank ^| Direction
-        echo # 6 ^= Haul ^| Direction ^| Rank
-        echo TITLE_FORMAT=1
-        echo.
-        echo # Path to global.ini file ^(full path including filename, without quotes^). Leave empty for auto-detection.
-        set "EXAMPLE_PATH=D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_(south_korea)\global.ini"
-        echo #   GLOBAL_INI_PATH=!EXAMPLE_PATH!
-        echo GLOBAL_INI_PATH=
-    ) >"!CONFIG_FILE!" 2>nul
-    chcp 65001 >nul
-    if errorlevel 1 (
-        echo Warning: Could not create config file. Using default settings.
-    )
-    set "USE_RP_AWARD_TAG=0"
-    set "USE_SPP_TAG=0"
-    set "USE_COLOR_TAGS=1"
-    set "USE_USER_NOTES=0"
-    set "USE_USER_DICT=0"
-    set "USE_STAR=1"
-    set "USE_MINING=1"
-    set "COLOR_TAGS_BLUE="
-    set "COLOR_TAGS_GREEN=Grade AAA;"
-    set "COLOR_TAGS_YELLOW="
-    set "COLOR_TAGS_RED=Pure;"
-    set "USE_CARGO_TITLES=1"
-    set "TITLE_FORMAT=1"
-    set "CFG_GLOBAL_INI_PATH="
-    set "CFG_LIVE_PATH="
-    goto :config_done
+    ) >"!CONFIG_FILE!"
 )
 
-:: Read existing config
+:: Read existing config and restore missing keys
 chcp 1251 >nul
 set "CFG_USE_RP_AWARD_TAG="
 set "CFG_USE_SPP_TAG="
@@ -176,37 +204,52 @@ set "CFG_USE_USER_NOTES="
 set "CFG_USE_USER_DICT="
 set "CFG_USE_STAR="
 set "CFG_USE_MINING="
+set "CFG_USE_CARGO_TITLES="
+set "CFG_TITLE_FORMAT="
+set "CFG_GLOBAL_INI_PATH="
 set "CFG_LIVE_PATH="
+set "CFG_UPDATE_FAILED="
+set "CFG_UPDATE_ATTEMPTS="
 set "CFG_COLOR_TAGS_BLUE="
 set "CFG_COLOR_TAGS_GREEN="
 set "CFG_COLOR_TAGS_YELLOW="
 set "CFG_COLOR_TAGS_RED="
-set "CFG_USE_CARGO_TITLES="
-set "CFG_TITLE_FORMAT="
-set "CFG_GLOBAL_INI_PATH="
+
+set "FOUND_USE_RP_AWARD_TAG=0"
+set "FOUND_USE_SPP_TAG=0"
+set "FOUND_USE_COLOR_TAGS=0"
+set "FOUND_USE_USER_NOTES=0"
+set "FOUND_USE_USER_DICT=0"
+set "FOUND_USE_STAR=0"
+set "FOUND_USE_MINING=0"
+set "FOUND_USE_CARGO_TITLES=0"
+set "FOUND_TITLE_FORMAT=0"
+set "FOUND_GLOBAL_INI_PATH=0"
+set "FOUND_COLOR_TAGS_BLUE=0"
 
 for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
     set "key=%%a"
     set "val=%%b"
     if not "!key!"=="" if not "!key:~0,1!"=="#" if not "!key:~0,1!"==";" (
         if /i "!key!"=="USE_RP_AWARD_TAG" (
-            if "!val!"=="1" set "CFG_USE_RP_AWARD_TAG=1"
-            if "!val!"=="0" set "CFG_USE_RP_AWARD_TAG=0"
+            if "!val: =!"=="1" (set "CFG_USE_RP_AWARD_TAG=1") else (set "CFG_USE_RP_AWARD_TAG=0")
+            set "FOUND_USE_RP_AWARD_TAG=1"
         )
         if /i "!key!"=="USE_SPP_TAG" (
-            if "!val!"=="1" set "CFG_USE_SPP_TAG=1"
-            if "!val!"=="0" set "CFG_USE_SPP_TAG=0"
+            if "!val: =!"=="1" (set "CFG_USE_SPP_TAG=1") else (set "CFG_USE_SPP_TAG=0")
+            set "FOUND_USE_SPP_TAG=1"
         )
         if /i "!key!"=="USE_USER_NOTES" (
-            if "!val!"=="1" set "CFG_USE_USER_NOTES=1"
-            if "!val!"=="0" set "CFG_USE_USER_NOTES=0"
+            if "!val: =!"=="1" (set "CFG_USE_USER_NOTES=1") else (set "CFG_USE_USER_NOTES=0")
+            set "FOUND_USE_USER_NOTES=1"
         )
         if /i "!key!"=="USE_COLOR_TAGS" (
-            if "!val!"=="1" set "CFG_USE_COLOR_TAGS=1"
-            if "!val!"=="0" set "CFG_USE_COLOR_TAGS=0"
+            if "!val: =!"=="1" (set "CFG_USE_COLOR_TAGS=1") else (set "CFG_USE_COLOR_TAGS=0")
+            set "FOUND_USE_COLOR_TAGS=1"
         )
         if /i "!key!"=="COLOR_TAGS_BLUE" (
             for /f "delims=" %%T in ('powershell -Command "Write-Host ('!val!'.Trim())"') do set "CFG_COLOR_TAGS_BLUE=%%T"
+            set "FOUND_COLOR_TAGS_BLUE=1"
         )
         if /i "!key!"=="COLOR_TAGS_GREEN" (
             for /f "delims=" %%T in ('powershell -Command "Write-Host ('!val!'.Trim())"') do set "CFG_COLOR_TAGS_GREEN=%%T"
@@ -219,46 +262,124 @@ for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
         )
         if /i "!key!"=="GLOBAL_INI_PATH" (
             set "CFG_GLOBAL_INI_PATH=!val!"
+            set "FOUND_GLOBAL_INI_PATH=1"
         )
         if /i "!key!"=="TITLE_FORMAT" (
-            set "CFG_TITLE_FORMAT=!val!"
+            set "CFG_TITLE_FORMAT=!val: =!"
+            set "FOUND_TITLE_FORMAT=1"
         )
         if /i "!key!"=="USE_CARGO_TITLES" (
-            if "!val!"=="1" set "CFG_USE_CARGO_TITLES=1"
-            if "!val!"=="0" set "CFG_USE_CARGO_TITLES=0"
+            if "!val: =!"=="1" (set "CFG_USE_CARGO_TITLES=1") else (set "CFG_USE_CARGO_TITLES=0")
+            set "FOUND_USE_CARGO_TITLES=1"
         )
         if /i "!key!"=="USE_USER_DICT" (
-            if "!val: =!"=="1" set "CFG_USE_USER_DICT=1"
-            if "!val: =!"=="0" set "CFG_USE_USER_DICT=0"
+            if "!val: =!"=="1" (set "CFG_USE_USER_DICT=1") else (set "CFG_USE_USER_DICT=0")
+            set "FOUND_USE_USER_DICT=1"
         )
         if /i "!key!"=="USE_STAR" (
-            if "!val: =!"=="1" set "CFG_USE_STAR=1"
-            if "!val: =!"=="0" set "CFG_USE_STAR=0"
+            if "!val: =!"=="1" (set "CFG_USE_STAR=1") else (set "CFG_USE_STAR=0")
+            set "FOUND_USE_STAR=1"
         )
         if /i "!key!"=="USE_MINING" (
-            if "!val: =!"=="1" set "CFG_USE_MINING=1"
-            if "!val: =!"=="0" set "CFG_USE_MINING=0"
+            if "!val: =!"=="1" (set "CFG_USE_MINING=1") else (set "CFG_USE_MINING=0")
+            set "FOUND_USE_MINING=1"
+        )
+        if /i "!key!"=="UPDATE_FAILED" (
+            set "CFG_UPDATE_FAILED=!val: =!"
+        )
+        if /i "!key!"=="UPDATE_ATTEMPTS" (
+            set "CFG_UPDATE_ATTEMPTS=!val: =!"
         )
         if /i "!key!"=="LIVE_PATH" (
             set "CFG_LIVE_PATH=!val!"
         )
     )
 )
+
+if "!FOUND_USE_RP_AWARD_TAG!"=="0" (
+    echo # Reputation Awarded tag addition ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_RP_AWARD_TAG=0 >>"!CONFIG_FILE!"
+    set "CFG_USE_RP_AWARD_TAG=0"
+)
+if "!FOUND_USE_SPP_TAG!"=="0" (
+    echo # Scenario Progress Points tag addition ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_SPP_TAG=0 >>"!CONFIG_FILE!"
+    set "CFG_USE_SPP_TAG=0"
+)
+if "!FOUND_USE_COLOR_TAGS!"=="0" (
+    echo # Commodity color tags ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_COLOR_TAGS=1 >>"!CONFIG_FILE!"
+    set "CFG_USE_COLOR_TAGS=1"
+)
+if "!FOUND_USE_USER_NOTES!"=="0" (
+    echo # User notes addition ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_USER_NOTES=0 >>"!CONFIG_FILE!"
+    set "CFG_USE_USER_NOTES=0"
+)
+if "!FOUND_USE_USER_DICT!"=="0" (
+    echo # User dictionary replacements ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_USER_DICT=0 >>"!CONFIG_FILE!"
+    set "CFG_USE_USER_DICT=0"
+)
+if "!FOUND_USE_STAR!"=="0" (
+    echo # Use STAR for automatic global.ini download >>"!CONFIG_FILE!"
+    echo USE_STAR=1 >>"!CONFIG_FILE!"
+    set "CFG_USE_STAR=1"
+)
+if "!FOUND_USE_MINING!"=="0" (
+    echo # Mining module ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_MINING=1 >>"!CONFIG_FILE!"
+    set "CFG_USE_MINING=1"
+)
+if "!FOUND_COLOR_TAGS_BLUE!"=="0" (
+    echo # Commodity color words ^(semicolon-separated^) >>"!CONFIG_FILE!"
+    echo # Known commodity words: Adult; Apex; Grade A; Grade AA; Grade AAA; Grade B; Grade C; Juvenile; Ore; Pure; R; Raw; >>"!CONFIG_FILE!"
+    echo COLOR_TAGS_BLUE= >>"!CONFIG_FILE!"
+    echo COLOR_TAGS_GREEN=Grade AAA; >>"!CONFIG_FILE!"
+    echo COLOR_TAGS_YELLOW= >>"!CONFIG_FILE!"
+    echo COLOR_TAGS_RED=Pure; >>"!CONFIG_FILE!"
+    set "CFG_COLOR_TAGS_BLUE="
+    set "CFG_COLOR_TAGS_GREEN=Grade AAA;"
+    set "CFG_COLOR_TAGS_YELLOW="
+    set "CFG_COLOR_TAGS_RED=Pure;"
+)
+if "!FOUND_USE_CARGO_TITLES!"=="0" (
+    echo # Cargo titles enrichment ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_CARGO_TITLES=1 >>"!CONFIG_FILE!"
+    set "CFG_USE_CARGO_TITLES=1"
+)
+if "!FOUND_TITLE_FORMAT!"=="0" (
+    echo # Cargo title format: >>"!CONFIG_FILE!"
+    echo # 1 ^= Direction ^| Rank ^| Haul        ^(default^) >>"!CONFIG_FILE!"
+    echo # 2 ^= Direction ^| Haul ^| Rank >>"!CONFIG_FILE!"
+    echo # 3 ^= Rank ^| Haul ^| Direction >>"!CONFIG_FILE!"
+    echo # 4 ^= Rank ^| Direction ^| Haul >>"!CONFIG_FILE!"
+    echo # 5 ^= Haul ^| Rank ^| Direction >>"!CONFIG_FILE!"
+    echo # 6 ^= Haul ^| Direction ^| Rank >>"!CONFIG_FILE!"
+    echo TITLE_FORMAT=1 >>"!CONFIG_FILE!"
+    set "CFG_TITLE_FORMAT=1"
+)
+if "!FOUND_GLOBAL_INI_PATH!"=="0" (
+    echo # Path to global.ini file ^(full path including filename, without quotes^). Leave empty for auto-detection. >>"!CONFIG_FILE!"
+    echo #   GLOBAL_INI_PATH=D:\Games\RSI\StarCitizen\LIVE\data\Localization\korean_^(south_korea^)\global.ini >>"!CONFIG_FILE!"
+    echo GLOBAL_INI_PATH= >>"!CONFIG_FILE!"
+    set "CFG_GLOBAL_INI_PATH="
+)
+
 chcp 65001 >nul
 
 :: Validate and apply configuration values
-if defined CFG_USE_RP_AWARD_TAG (set "USE_RP_AWARD_TAG=!CFG_USE_RP_AWARD_TAG!") else (set "USE_RP_AWARD_TAG=0")
-if defined CFG_USE_SPP_TAG      (set "USE_SPP_TAG=!CFG_USE_SPP_TAG!")      else (set "USE_SPP_TAG=0")
-if defined CFG_USE_USER_NOTES   (set "USE_USER_NOTES=!CFG_USE_USER_NOTES!")   else (set "USE_USER_NOTES=0")
-if defined CFG_USE_COLOR_TAGS   (set "USE_COLOR_TAGS=!CFG_USE_COLOR_TAGS!")   else (set "USE_COLOR_TAGS=1")
-if defined CFG_USE_USER_DICT    (set "USE_USER_DICT=!CFG_USE_USER_DICT!")    else (set "USE_USER_DICT=0")
-if defined CFG_USE_CARGO_TITLES (set "USE_CARGO_TITLES=!CFG_USE_CARGO_TITLES!") else (set "USE_CARGO_TITLES=1")
-if defined CFG_USE_STAR         (set "USE_STAR=!CFG_USE_STAR!")              else (set "USE_STAR=1")
-if defined CFG_USE_MINING       (set "USE_MINING=!CFG_USE_MINING!")          else (set "USE_MINING=1")
+set "USE_RP_AWARD_TAG=!CFG_USE_RP_AWARD_TAG!"
+set "USE_SPP_TAG=!CFG_USE_SPP_TAG!"
+set "USE_COLOR_TAGS=!CFG_USE_COLOR_TAGS!"
+set "USE_USER_NOTES=!CFG_USE_USER_NOTES!"
+set "USE_USER_DICT=!CFG_USE_USER_DICT!"
+set "USE_STAR=!CFG_USE_STAR!"
+set "USE_MINING=!CFG_USE_MINING!"
+set "USE_CARGO_TITLES=!CFG_USE_CARGO_TITLES!"
+set "TITLE_FORMAT=!CFG_TITLE_FORMAT!"
 
 :: Validate TITLE_FORMAT
-if not defined CFG_TITLE_FORMAT set "CFG_TITLE_FORMAT=1"
-set "TITLE_FORMAT=!CFG_TITLE_FORMAT!"
 if not "!TITLE_FORMAT!"=="1" if not "!TITLE_FORMAT!"=="2" if not "!TITLE_FORMAT!"=="3" if not "!TITLE_FORMAT!"=="4" if not "!TITLE_FORMAT!"=="5" if not "!TITLE_FORMAT!"=="6" (
     echo Warning: Invalid TITLE_FORMAT value. Using default 1.
     set "TITLE_FORMAT=1"
@@ -357,6 +478,8 @@ if not "%CUSTOM_ONLY%"=="1" (
                 set "NEED_DOWNLOAD=0"
             )
         )
+    ) else (
+        if exist "!STAR_FILE!" set "NEED_DOWNLOAD=0"
     )
 
     if "!NEED_DOWNLOAD!"=="1" (
@@ -512,7 +635,7 @@ echo Using global.ini from !SOURCE!: "!GLOBAL_INI!"
 powershell -ExecutionPolicy Bypass -Command "& { if ((Get-Item -LiteralPath '%GLOBAL_INI%').Length -lt 1048576) { exit 1 } }" >nul 2>&1
 if errorlevel 1 (
     echo.
-    echo Error: Source file "%GLOBAL_INI%" is too small. The file may be corrupted.
+    echo Error: "%GLOBAL_INI%" is not a valid global.ini file. The file is too small or not a localization file.
     pause
     exit /b 1
 )
@@ -667,13 +790,13 @@ if errorlevel 1 echo Error: PowerShell error occurred.
 if exist "%CONTRACTS_FILE%" del "%CONTRACTS_FILE%" 2>nul
 if exist "%ORDNANCE_FILE%" del "%ORDNANCE_FILE%" 2>nul
 if exist "!MINING_FILE!" del "!MINING_FILE!" 2>nul
+attrib +h "!SCRIPT_DIR!\_updater.bat" >nul 2>&1
 echo Done.
 
 :: ---------- Launch RSI Launcher ----------
 if "!USE_STAR!"=="1" if defined LAUNCHER_PATH (
     if exist "!LAUNCHER_PATH!\RSI Launcher.exe" (
-        echo Starting RSI Launcher...
-        powershell -Command "Start-Process '!LAUNCHER_PATH!\RSI Launcher.exe'"
+        start "" "!LAUNCHER_PATH!\RSI Launcher.exe" >nul 2>&1
     )
 )
 

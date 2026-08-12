@@ -1,6 +1,6 @@
 # scler.ps1 - main processing script for global.ini
 # Called from SCLER.bat
-# v1.15
+# v1.16
 
 param(
     $file1,
@@ -22,7 +22,7 @@ param(
     $customOnly = '0'
 )
 
-Write-Host "scler.ps1 v1.15"
+Write-Host "scler.ps1 v1.16"
 
 $useColorTags = $useColorTags -eq '1'
 $useRpAwardTag = $useRpAwardTag -eq '1'
