@@ -99,6 +99,7 @@ if not defined SOURCE_PATH if not "%~1"=="" (
 if not "%CUSTOM_ONLY%"=="0" goto :skip_update
 if not "%RESTORE_MODE%"=="0" goto :skip_update
 if not "%PICK_PATH%"=="0" goto :skip_update
+if not "%USE_AUTO_UPDATE%"=="1" if not "%FORCE_UPDATE%"=="1" goto :skip_update
 
 set "URL_API=https://api.github.com/repos/iceee234/scler/releases/latest"
 set "URL_DOWNLOAD=https://github.com/iceee234/scler/archive/refs/tags/latest.zip"
@@ -215,6 +216,7 @@ set "CFG_COLOR_TAGS_BLUE="
 set "CFG_COLOR_TAGS_GREEN="
 set "CFG_COLOR_TAGS_YELLOW="
 set "CFG_COLOR_TAGS_RED="
+set "CFG_USE_AUTO_UPDATE="
 
 set "FOUND_USE_RP_AWARD_TAG=0"
 set "FOUND_USE_SPP_TAG=0"
@@ -227,6 +229,7 @@ set "FOUND_USE_CARGO_TITLES=0"
 set "FOUND_TITLE_FORMAT=0"
 set "FOUND_GLOBAL_INI_PATH=0"
 set "FOUND_COLOR_TAGS_BLUE=0"
+set "FOUND_USE_AUTO_UPDATE=0"
 
 for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
     set "key=%%a"
@@ -285,6 +288,10 @@ for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
             if "!val: =!"=="1" (set "CFG_USE_MINING=1") else (set "CFG_USE_MINING=0")
             set "FOUND_USE_MINING=1"
         )
+        if /i "!key!"=="USE_AUTO_UPDATE" (
+            if "!val: =!"=="1" (set "CFG_USE_AUTO_UPDATE=1") else (set "CFG_USE_AUTO_UPDATE=0")
+            set "FOUND_USE_AUTO_UPDATE=1"
+        )
         if /i "!key!"=="UPDATE_FAILED" (
             set "CFG_UPDATE_FAILED=!val: =!"
         )
@@ -326,6 +333,11 @@ if "!FOUND_USE_STAR!"=="0" (
     echo # Use STAR for automatic global.ini download >>"!CONFIG_FILE!"
     echo USE_STAR=1 >>"!CONFIG_FILE!"
     set "CFG_USE_STAR=1"
+)
+if "!FOUND_USE_AUTO_UPDATE!"=="0" (
+    echo # Auto update ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
+    echo USE_AUTO_UPDATE=0 >>"!CONFIG_FILE!"
+    set "CFG_USE_AUTO_UPDATE=0"
 )
 if "!FOUND_USE_MINING!"=="0" (
     echo # Mining module ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
@@ -376,9 +388,11 @@ set "USE_COLOR_TAGS=!CFG_USE_COLOR_TAGS!"
 set "USE_USER_NOTES=!CFG_USE_USER_NOTES!"
 set "USE_USER_DICT=!CFG_USE_USER_DICT!"
 set "USE_STAR=!CFG_USE_STAR!"
+set "USE_AUTO_UPDATE=!CFG_USE_AUTO_UPDATE!"
 set "USE_MINING=!CFG_USE_MINING!"
 set "USE_CARGO_TITLES=!CFG_USE_CARGO_TITLES!"
 set "TITLE_FORMAT=!CFG_TITLE_FORMAT!"
+
 
 :: Validate TITLE_FORMAT
 if not "!TITLE_FORMAT!"=="1" if not "!TITLE_FORMAT!"=="2" if not "!TITLE_FORMAT!"=="3" if not "!TITLE_FORMAT!"=="4" if not "!TITLE_FORMAT!"=="5" if not "!TITLE_FORMAT!"=="6" (
