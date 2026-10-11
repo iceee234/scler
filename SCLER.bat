@@ -380,7 +380,18 @@ if defined CFG_UPDATE_FAILED (
 
 :: Check for pending update
 if exist "!SCRIPT_DIR!\update.zip" (
+    if not exist "!SCRIPT_DIR!\_updater.bat" (
+        echo.
+        echo Error: _updater.bat not found. Update cannot be completed.
+        echo Please reinstall SCLER from GitHub.
+        echo https://github.com/iceee234/scler/releases
+        powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; if ($cfg -notmatch 'UPDATE_FAILED=') { $cfg += \"`nUPDATE_FAILED=1\" } else { $cfg = $cfg -replace 'UPDATE_FAILED=.*', 'UPDATE_FAILED=1' }; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)" >nul 2>&1
+        del "!SCRIPT_DIR!\update.zip" >nul 2>&1
+        pause
+        exit /b 1
+    )
     echo Pending update found. Starting updater...
+    powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; $a = 0; if ($cfg -match 'UPDATE_ATTEMPTS=(\d+)') { $a = [int]$matches[1] }; $a++; if ($cfg -notmatch 'UPDATE_ATTEMPTS=') { $cfg += \"`nUPDATE_ATTEMPTS=$a\" } else { $cfg = $cfg -replace 'UPDATE_ATTEMPTS=.*', ('UPDATE_ATTEMPTS=' + $a) }; if ($a -ge 3) { if ($cfg -notmatch 'UPDATE_FAILED=') { $cfg += \"`nUPDATE_FAILED=1\" } else { $cfg = $cfg -replace 'UPDATE_FAILED=.*', 'UPDATE_FAILED=1' } }; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)" >nul 2>&1
     powershell -Command "Start-Process '!SCRIPT_DIR!\_updater.bat'"
     exit
 )
