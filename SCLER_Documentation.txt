@@ -369,6 +369,20 @@ TheCollector_Intro_Desc=Рога тундровых копионов могут быть найдены в тундре,
 
 Прочее:
 - Error: PowerShell error occurred — внутренняя ошибка PowerShell.
+- Error: No write access to SCLER.cfg / Access is denied —
+  файл защищён от записи или заблокирован.
+  Проверьте:
+    1. Атрибут файла: attrib "SCLER.cfg"
+       Снять: attrib -r "SCLER.cfg"
+    2. Права на папку с программой — программа не должна лежать
+       в Program Files или системных папках. Переместите в папку
+       с правами записи (например, D:\SCLER\).
+    3. Антивирус — добавьте папку с программой
+       в исключения.
+    4. Облачную синхронизацию (Dropbox, OneDrive) — папка может быть
+       временно заблокирована при синхронизации. Подождите или
+       переместите программу вне облачной папки.
+    5. Запустите SCLER.bat от имени администратора.
 - Ошибки «korean_ is not recognized» или «system cannot find the path»:
   возникают из-за скобок в пути к папке korean_(south_korea).
   Указывайте полный путь к global.ini в аргументе командной строки
@@ -390,6 +404,7 @@ Awarded from X level variants             Награда из вариантов уровня X
 [Regional Variants] example locations:    [Региональные варианты] примеры локаций:
 Reputation Awarded:                       Репутация за выполнение:
 Scenario Progress Points N                Очки прогресса сценария: N
+Scenario Progress Points Total N | X M    Очки прогресса сценария: Всего N | Категория M
 Типы модулей (Cooler, Power Plant и др.)  Типы модулей с указанием класса
                                           (Охладитель CIV-1A), (Генератор щита MIL-2A)
 Ресурсы майнинга                          Названия ресурсов со значением сигнатуры,

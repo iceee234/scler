@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo SCLER v1.16
+echo SCLER v1.17
 
 if /i "%~1"=="-?" goto :help
 if /i "%~1"=="-h" goto :help
@@ -10,7 +10,7 @@ goto :main
 :help
 cls
 echo =======================================================================================================
-echo SCLER - SC Localization Enhancer Russian v1.16
+echo SCLER - SC Localization Enhancer Russian v1.17
 echo =======================================================================================================
 echo.
 echo Usage: SCLER.bat [source_file] [options]
@@ -95,85 +95,6 @@ if not defined SOURCE_PATH if not "%~1"=="" (
     if "!FIRST_CHAR!" neq "-" set "SOURCE_PATH=%~f1"
 )
 
-:: ---------- Check for updates ----------
-if not "%CUSTOM_ONLY%"=="0" goto :skip_update
-if not "%RESTORE_MODE%"=="0" goto :skip_update
-if not "%PICK_PATH%"=="0" goto :skip_update
-if not "%USE_AUTO_UPDATE%"=="1" if not "%FORCE_UPDATE%"=="1" goto :skip_update
-
-set "URL_API=https://api.github.com/repos/iceee234/scler/releases/latest"
-set "URL_DOWNLOAD=https://github.com/iceee234/scler/archive/refs/tags/latest.zip"
-
-:: Force update requested
-if "!FORCE_UPDATE!"=="1" (
-    powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; $cfg = $cfg -replace 'UPDATE_FAILED=.*', 'UPDATE_FAILED=0' -replace 'UPDATE_ATTEMPTS=.*', 'UPDATE_ATTEMPTS=0'; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)"
-    echo Forced update check...
-)
-
-:: Check if update is blocked
-if defined CFG_UPDATE_FAILED (
-    if "!CFG_UPDATE_FAILED!"=="1" (
-        echo.
-        echo !!! Previous update attempts failed. Update check skipped.
-        echo !!! Run SCLER.bat -u to force update check.
-        echo.
-        goto :skip_update
-    )
-)
-
-:: Check for pending update
-if exist "!SCRIPT_DIR!\update.zip" (
-    echo Pending update found. Starting updater...
-    powershell -Command "Start-Process '!SCRIPT_DIR!\_updater.bat'"
-    exit
-)
-
-echo Checking for updates...
-powershell -ExecutionPolicy Bypass -Command "try { $latest = (Invoke-RestMethod -Uri '!URL_API!').published_at; $local = (Get-Item '!SCRIPT_DIR!\SCLER.bat').LastWriteTimeUtc.ToString('yyyy-MM-ddTHH:mm:ssZ'); if ($latest -gt $local) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
-if not errorlevel 1 (
-    echo Update available. Downloading...
-    powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SCLR-Updater' } -Uri '!URL_DOWNLOAD!' -OutFile '!SCRIPT_DIR!\update.zip' -UseBasicParsing" >nul 2>&1
-
-    if exist "!SCRIPT_DIR!\update.zip" (
-        powershell -ExecutionPolicy Bypass -Command "if ((Get-Item -Force '!SCRIPT_DIR!\update.zip').Length -lt 1024) { exit 1 }" >nul 2>&1
-        if errorlevel 1 (
-            echo.
-            echo Error: Downloaded update is damaged. Please try again later.
-            del "!SCRIPT_DIR!\update.zip" >nul 2>&1
-            pause
-            exit /b 1
-        )
-        if exist "!SCRIPT_DIR!\_updater.bat" (
-            powershell -ExecutionPolicy Bypass -Command "if ((Get-Item -Force '!SCRIPT_DIR!\_updater.bat').Length -lt 2048) { exit 1 }" >nul 2>&1
-            if errorlevel 1 (
-                echo.
-                echo Error: _updater.bat is damaged. Please reinstall SCLER from GitHub.
-                echo https://github.com/iceee234/scler/releases
-                del "!SCRIPT_DIR!\update.zip" >nul 2>&1
-                pause
-                exit /b 1
-            )
-        )
-        if not exist "!SCRIPT_DIR!\_updater.bat" (
-            echo.
-            echo Error: _updater.bat not found. Update cannot be completed.
-            echo Please reinstall SCLER from GitHub.
-            echo https://github.com/iceee234/scler/releases
-            del "!SCRIPT_DIR!\update.zip" >nul 2>&1
-            pause
-            exit /b 1
-        )
-        echo This window will close in 3 seconds...
-        timeout /t 3 /nobreak >nul
-        powershell -Command "Start-Process '!SCRIPT_DIR!\_updater.bat'"
-        exit
-    )
-) else (
-    echo No updates found.
-)
-
-:skip_update
-
 powershell -? >nul 2>&1 || (
     echo.
     echo Error: PowerShell is required. This script cannot run without it.
@@ -230,6 +151,8 @@ set "FOUND_TITLE_FORMAT=0"
 set "FOUND_GLOBAL_INI_PATH=0"
 set "FOUND_COLOR_TAGS_BLUE=0"
 set "FOUND_USE_AUTO_UPDATE=0"
+set "FOUND_UPDATE_ATTEMPTS=0"
+set "FOUND_UPDATE_FAILED=0"
 
 for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
     set "key=%%a"
@@ -294,9 +217,11 @@ for /f "usebackq tokens=1,* delims==" %%a in ("!CONFIG_FILE!") do (
         )
         if /i "!key!"=="UPDATE_FAILED" (
             set "CFG_UPDATE_FAILED=!val: =!"
+            set "FOUND_UPDATE_FAILED=1"
         )
         if /i "!key!"=="UPDATE_ATTEMPTS" (
             set "CFG_UPDATE_ATTEMPTS=!val: =!"
+            set "FOUND_UPDATE_ATTEMPTS=1"
         )
         if /i "!key!"=="LIVE_PATH" (
             set "CFG_LIVE_PATH=!val!"
@@ -338,6 +263,14 @@ if "!FOUND_USE_AUTO_UPDATE!"=="0" (
     echo # Auto update ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
     echo USE_AUTO_UPDATE=0 >>"!CONFIG_FILE!"
     set "CFG_USE_AUTO_UPDATE=0"
+)
+if "!FOUND_UPDATE_ATTEMPTS!"=="0" (
+    echo UPDATE_ATTEMPTS=0 >>"!CONFIG_FILE!"
+    set "CFG_UPDATE_ATTEMPTS=0"
+)
+if "!FOUND_UPDATE_FAILED!"=="0" (
+    echo UPDATE_FAILED=0 >>"!CONFIG_FILE!"
+    set "CFG_UPDATE_FAILED=0"
 )
 if "!FOUND_USE_MINING!"=="0" (
     echo # Mining module ^(1 = enabled, 0 = disabled^) >>"!CONFIG_FILE!"
@@ -416,6 +349,89 @@ for %%v in (BLUE GREEN YELLOW RED) do (
 )
 
 :config_done
+
+:: ---------- Check for updates ----------
+if not "%CUSTOM_ONLY%"=="0" goto :skip_update
+if not "%RESTORE_MODE%"=="0" goto :skip_update
+if not "%PICK_PATH%"=="0" goto :skip_update
+if not "%USE_AUTO_UPDATE%"=="1" if not "%FORCE_UPDATE%"=="1" goto :skip_update
+
+set "URL_API=https://api.github.com/repos/iceee234/scler/releases/latest"
+set "URL_DOWNLOAD=https://github.com/iceee234/scler/archive/refs/tags/latest.zip"
+
+:: Force update requested
+if "!FORCE_UPDATE!"=="1" (
+    powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; $cfg = $cfg -replace 'UPDATE_FAILED=.*', 'UPDATE_FAILED=0' -replace 'UPDATE_ATTEMPTS=.*', 'UPDATE_ATTEMPTS=0'; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)"
+    set "CFG_UPDATE_FAILED=0"
+    set "CFG_UPDATE_ATTEMPTS=0"
+    echo Forced update check...
+)
+
+:: Check if update is blocked
+if defined CFG_UPDATE_FAILED (
+    if "!CFG_UPDATE_FAILED!"=="1" (
+        echo.
+        echo !!! Previous update attempts failed. Update check skipped.
+        echo !!! Run SCLER.bat -u to force update check.
+        echo.
+        goto :skip_update
+    )
+)
+
+:: Check for pending update
+if exist "!SCRIPT_DIR!\update.zip" (
+    echo Pending update found. Starting updater...
+    powershell -Command "Start-Process '!SCRIPT_DIR!\_updater.bat'"
+    exit
+)
+
+echo Checking for updates...
+powershell -ExecutionPolicy Bypass -Command "try { $latest = (Invoke-RestMethod -Uri '!URL_API!').published_at; $local = (Get-Item '!SCRIPT_DIR!\SCLER.bat').LastWriteTimeUtc.ToString('yyyy-MM-ddTHH:mm:ssZ'); if ($latest -gt $local) { exit 0 } else { exit 1 } } catch { exit 1 }" >nul 2>&1
+if not errorlevel 1 (
+    echo Update available. Downloading...
+    powershell -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Headers @{ 'User-Agent'='SCLR-Updater' } -Uri '!URL_DOWNLOAD!' -OutFile '!SCRIPT_DIR!\update.zip' -UseBasicParsing" >nul 2>&1
+
+    if exist "!SCRIPT_DIR!\update.zip" (
+        powershell -ExecutionPolicy Bypass -Command "if ((Get-Item -Force '!SCRIPT_DIR!\update.zip').Length -lt 1024) { exit 1 }" >nul 2>&1
+        if errorlevel 1 (
+            echo.
+            echo Error: Downloaded update is damaged. Please try again later.
+            del "!SCRIPT_DIR!\update.zip" >nul 2>&1
+            pause
+            exit /b 1
+        )
+        if exist "!SCRIPT_DIR!\_updater.bat" (
+            powershell -ExecutionPolicy Bypass -Command "if ((Get-Item -Force '!SCRIPT_DIR!\_updater.bat').Length -lt 2048) { exit 1 }" >nul 2>&1
+            if errorlevel 1 (
+                echo.
+                echo Error: _updater.bat is damaged. Please reinstall SCLER from GitHub.
+                echo https://github.com/iceee234/scler/releases
+                del "!SCRIPT_DIR!\update.zip" >nul 2>&1
+                pause
+                exit /b 1
+            )
+        )
+        if not exist "!SCRIPT_DIR!\_updater.bat" (
+            echo.
+            echo Error: _updater.bat not found. Update cannot be completed.
+            echo Please reinstall SCLER from GitHub.
+            echo https://github.com/iceee234/scler/releases
+            del "!SCRIPT_DIR!\update.zip" >nul 2>&1
+            pause
+            exit /b 1
+        )
+:: Increment update attempts before starting updater
+	powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; $a = 0; if ($cfg -match 'UPDATE_ATTEMPTS=(\d+)') { $a = [int]$matches[1] }; $a++; $cfg = $cfg -replace 'UPDATE_ATTEMPTS=.*', ('UPDATE_ATTEMPTS=' + $a); if ($a -ge 3) { if ($cfg -notmatch 'UPDATE_FAILED=') { $cfg += \"`nUPDATE_FAILED=1\" } else { $cfg = $cfg -replace 'UPDATE_FAILED=.*', 'UPDATE_FAILED=1' } }; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)" >nul 2>&1
+        echo This window will close in 3 seconds...
+        timeout /t 3 /nobreak >nul
+        powershell -Command "Start-Process '!SCRIPT_DIR!\_updater.bat'"
+        exit
+    )
+) else (
+    echo No updates found.
+)
+
+:skip_update
 
 if "%USE_RP_AWARD_TAG%"=="0" (
     echo Reputation Awarded module is disabled.

@@ -1,6 +1,6 @@
 # scler.ps1 - main processing script for global.ini
 # Called from SCLER.bat
-# v1.16
+# v1.17
 
 param(
     $file1,
@@ -22,7 +22,7 @@ param(
     $customOnly = '0'
 )
 
-Write-Host "scler.ps1 v1.16"
+Write-Host "scler.ps1 v1.17"
 
 $useColorTags = $useColorTags -eq '1'
 $useRpAwardTag = $useRpAwardTag -eq '1'
@@ -352,7 +352,8 @@ $potentialPattern = '<EM(\d)>Potential Blueprints(?:\s*\(([^)]*)\))?\s*</EM\1>'
 $mbpPattern = '<EM(\d)>Multiple Blueprint Pools(?:\s*\(([^)]*)\))?\s*</EM\1>'
 $rpPatternBasic = '<EM(\d)>Reputation Awarded:\s*</EM\1>\s*([\d, /]+)'
 $rpPatternDifficulty = '<EM(\d)>Reputation Awarded \(by difficulty\):\s*</EM\1>\s*([\d, /]+)'
-$sppPattern = '<EM(\d)>Scenario Progress Points\s*([\d,]+)\s*(?:\(Split\))?\s*(?:\s*\|\s*Scenario Progress Points\s*([\d,]+)\s*)*</EM\1>'
+$sppPatternNew = '<EM(\d)>Scenario Progress Points Total\s+([\d,]+)\s*\|\s*(\w+)\s+([\d,]+)\s*(\(Split\))?</EM\1>'
+$sppPatternOld = '<EM(\d)>Scenario Progress Points\s+([\d,]+)(?:\s*\|\s*Scenario Progress Points\s+([\d,]+))?\s*(?:\(Split\))?</EM\1>'
 
 $stage3Dict = @{}
 $stage4Dict = @{}
@@ -377,11 +378,14 @@ foreach ($k in $allContracts.Keys) {
     if ($v -match $rpPatternDifficulty) {
         $stageRPDict[$k] = @{ Color = $Matches[1]; Type = 'difficulty'; Numbers = ($Matches[2].Trim() -replace ',', ' '); OrigValue = $v }
     }
-    if ($v -match $sppPattern) {
+    if ($v -match $sppPatternNew) {
+        $stageSPPDict[$k] = @{ Color = $Matches[1]; Total = $Matches[2]; Category = $Matches[3]; CategoryValue = $Matches[4]; Split = [bool]$Matches[5]; Type = 'category'; OrigValue = $v }
+    }
+    elseif ($v -match $sppPatternOld) {
         $points = $Matches[2]
         if ($Matches[3]) { $points += ' | ' + $Matches[3] }
         if ($v -match '\(Split\)') { $points += ' (Split)' }
-        $stageSPPDict[$k] = @{ Color = $Matches[1]; Points = $points; OrigValue = $v }
+        $stageSPPDict[$k] = @{ Color = $Matches[1]; Points = $points; Type = 'simple'; OrigValue = $v }
     }
 }
 
@@ -555,8 +559,19 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
     if ($useSppTag -and $stageSPPDict.ContainsKey($key)) {
         $entry = $stageSPPDict[$key]
         if ($newValue -notmatch $rusSppMarker) {
-            $rusPoints = $entry.Points -replace '\(Split\)', '(Split)'
-            $rusPoints = $rusPoints -replace '\|', ('| ' + $locSpp + ' ')
+            if ($entry.Type -eq 'category') {
+                $categoryName = switch ($entry.Category) {
+                    'Defense'    { $locSppDefense }
+                    'Collection' { $locSppCollection }
+                    'Transport'  { $locSppTransport }
+                    default      { $entry.Category }
+                }
+                $splitText = if ($entry.Split) { ' ' + $locSplit } else { '' }
+                $rusPoints = $locSppTotal + ' ' + $entry.Total + ' | ' + $categoryName + ' ' + $entry.CategoryValue + $splitText
+            } else {
+                $rusPoints = $entry.Points -replace '\(Split\)', $locSplit
+                $rusPoints = $rusPoints -replace '\|', ('| ' + $locSpp + ' ')
+            }
             $rusBlock = '<EM' + $entry.Color + '>' + $locSpp + ' ' + $rusPoints + '</EM' + $entry.Color + '>'
             $engSppPattern = '<EM\d+>Scenario Progress Points[\s\d,|()A-Za-z]*</EM\d+>'
             if ($newValue -match $engSppPattern) {
