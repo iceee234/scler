@@ -140,7 +140,7 @@ $locSpp              = [System.Text.Encoding]::UTF8.GetString([System.Convert]::
 $locSppTotal         = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0JLRgdC10LPQvg=='))
 $locSppDefense       = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0J7QsdC+0YDQvtC90LA='))
 $locSppCollection    = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0KHQsdC+0YA='))
-$locSppTransport     = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0KLRgNCw0L3RgdC/0L7RgNGC'))
+$locSppTransport     = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0J/QtdGA0LXQstC+0LfQutCw'))
 $locSplit            = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('KNCU0LXQu9C40YLRgdGPKQ=='))
 $locRegionalVariants = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('W9Cg0LXQs9C40L7QvdCw0LvRjNC90YvQtSDQstCw0YDQuNCw0L3RgtGLXSDQv9GA0LjQvNC10YDRiyDQu9C+0LrQsNGG0LjQuTo='))
 $locNotesMarker      = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('0JfQsNC80LXRgtC60Lg6'))
