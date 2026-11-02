@@ -63,6 +63,18 @@ function Get-FileEncoding {
     return [System.Text.Encoding]::GetEncoding(1251)
 }
 
+# User files: UTF-8 (with or without BOM) if valid, otherwise Windows-1251
+function Get-UserFileEncoding {
+    param($filePath)
+    try {
+        $bytes = [System.IO.File]::ReadAllBytes($filePath)
+        $null = (New-Object System.Text.UTF8Encoding($false, $true)).GetString($bytes)
+        return [System.Text.Encoding]::UTF8
+    } catch {
+        return [System.Text.Encoding]::GetEncoding(1251)
+    }
+}
+
 # Read global.ini
 $encoding = Get-FileEncoding $file1
 $lines = [System.IO.File]::ReadAllLines($file1, $encoding)
@@ -171,7 +183,7 @@ foreach ($line in $lines) {
 }
 
 $frontendLine = $lines -match '^Frontend_PU_Version(?:,P)?=' | Select-Object -First 1
-if (-not $frontendLine -or $frontendLine -notmatch '[а-яё]') {
+if (-not $frontendLine -or $frontendLine -notmatch '[\u0430-\u044f\u0451]') {
     Write-Host 'Warning: the provided global.ini does not appear to be a Russian version. Some markers may not be translated correctly.'
 }
 
@@ -681,9 +693,9 @@ if ($useCargoTitles) {
         if ($keyBase -match '_RegionLink_' -and $keyBase -match 'HaulCargo' -and $keyBase -match '_title') {
             if ($value -notmatch [regex]::Escape($cargoAppendSuffix)) {
                 $bpSuffix = ''
-                if ($value -match '\\n (<EM\d+>\[Чертежи\]\*?</EM\d+>)$') {
+                if ($value -match '\\n (<EM\d+>\[\u0427\u0435\u0440\u0442\u0435\u0436\u0438\]\*?</EM\d+>)$') {
                     $bpSuffix = '\n ' + $Matches[1]
-                    $value = $value -replace '\\n <EM\d+>\[Чертежи\]\*?</EM\d+>$', ''
+                    $value = $value -replace '\\n <EM\d+>\[\u0427\u0435\u0440\u0442\u0435\u0436\u0438\]\*?</EM\d+>$', ''
                 }
                 $newValue = $value + $cargoAppendSuffix + $bpSuffix
                 if ($newValue -ne ($value + $bpSuffix)) {
@@ -708,7 +720,7 @@ if ($useCargoTitles) {
                     if ($parts.ContainsKey($k)) { $ordered += $parts[$k] }
                 }
                 $newValue = $ordered -join ' | '
-                if ($value -match '\\n (<EM\d+>\[Чертежи\]\*?</EM\d+>)$') {
+                if ($value -match '\\n (<EM\d+>\[\u0427\u0435\u0440\u0442\u0435\u0436\u0438\]\*?</EM\d+>)$') {
                     $newValue += '\n ' + $Matches[1]
                 }
                 
@@ -779,7 +791,7 @@ if ($useUserNotes) {
     $userNotesFile = Join-Path $PSScriptRoot 'user_notes.ini'
     if (Test-Path $userNotesFile) {
         $userNotes = @{}
-        Get-Content $userNotesFile -Encoding Default | ForEach-Object {
+        [System.IO.File]::ReadAllLines($userNotesFile, (Get-UserFileEncoding $userNotesFile)) | ForEach-Object {
             $line = $_.Trim()
             if ($line -eq '' -or $line.StartsWith('#')) { return }
             $p = $line -split '=', 2
@@ -801,7 +813,7 @@ if ($useUserNotes) {
                 $key = $p[0].Trim() -replace ',.*$', ''
                 if ($userNotes.ContainsKey($key)) {
                     $note = $userNotes[$key]
-                    $note = $note -replace '[^A-Za-zа-яё0-9 .,!?;:()\-_+=\[\]{}|/\\@#$%^&*~`"''<>]', ' '
+                    $note = $note -replace '[^A-Za-z\u0430-\u044f\u04510-9 .,!?;:()\-_+=\[\]{}|/\\@#$%^&*~`"''<>]', ' '
                     $note = $note -replace ' +', ' '
                     if ($note.Length -gt $maxNoteLength) {
                         $note = $note.Substring(0, $maxNoteLength)
@@ -835,7 +847,7 @@ if ($useUserDict) {
     $userDictFile = Join-Path $PSScriptRoot 'user_dict.ini'
     if (Test-Path $userDictFile) {
         $userDict = @{}
-        Get-Content $userDictFile -Encoding Default | ForEach-Object {
+        [System.IO.File]::ReadAllLines($userDictFile, (Get-UserFileEncoding $userDictFile)) | ForEach-Object {
             $dictLine = $_.Trim()
             if ($dictLine -eq '' -or $dictLine.StartsWith('#')) { return }
             $dp = $dictLine -split '=', 2
@@ -907,8 +919,7 @@ if ($changedCount -eq 0) {
         
         $needBackup = $true
         if (Test-Path $backupFile) {
-            $backupEncodingName = if ($encoding -eq [System.Text.Encoding]::UTF8) { 'UTF8' } else { 'Default' }
-            $backupFrontend = (Select-String -Path $backupFile -Pattern '^Frontend_PU_Version(?:,P)?=' -Encoding $backupEncodingName | Select-Object -First 1).Line
+            $backupFrontend = ([System.IO.File]::ReadAllLines($backupFile, (Get-FileEncoding $backupFile)) -match '^Frontend_PU_Version(?:,P)?=') | Select-Object -First 1
             if ($backupFrontend -and $frontendLine -and $backupFrontend -eq $frontendLine) {
                 $needBackup = $false
             }
