@@ -803,14 +803,16 @@ if ($useUserNotes) {
                     $note = $userNotes[$key]
                     $note = $note -replace '[^A-Za-zà-ÿ¸0-9 .,!?;:()\-_+=\[\]{}|/\\@#$%^&*~`"''<>]', ' '
                     $note = $note -replace ' +', ' '
+                    $note = $note -replace '(\\n){2,}', '\n'
+                    $note = $note -replace '^(\\n)+|(\\n)+$', ''
                     if ($note.Length -gt $maxNoteLength) {
                         $note = $note.Substring(0, $maxNoteLength)
                         $truncatedNotes += $key
                     }
                     $value = ($lines[$i] -split '=', 2)[1]
                     if ($value -match [regex]::Escape($notesMarker)) {
-                        $value = $value -replace '\n\n' + [regex]::Escape($notesMarker) + '\n.*$', ''
-                        $value = $value -replace '\n\n' + [regex]::Escape($notesMarker) + '$', ''
+                        $value = $value -replace ('\\n\\n' + [regex]::Escape($notesMarker) + '\\n.*?(?=\\n\\n|$)'), ''
+                        $value = $value -replace ('\\n\\n' + [regex]::Escape($notesMarker) + '(?=\\n\\n|$)'), ''
                     }
                     $newValue = $value + '\n\n' + $notesMarker + '\n' + $note
                     $lines[$i] = $p[0].Trim() + '=' + $newValue
