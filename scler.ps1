@@ -409,9 +409,6 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
     $value = $p[1]
     $entry = $stage3Dict[$key]
     if ($value -match $rusBpPattern) { $null = $stage3Dict.Remove($key); continue }
-
-    Write-Host "DEBUG: key=$key, value has BP? $($value -match $rusBpPattern)"
-
     $emMatch = [regex]::Match($value, '<EM(\d+)>([^<]*)\[BP\](\*?)([^<]*)</EM\1>')
     $star = if ($entry.Type -eq 'star') { '*' } else { '' }
     $replaceWith = '<EM' + $entry.Color + '>[' + $locBP + ']' + $star + '</EM' + $entry.Color + '>'
