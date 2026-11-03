@@ -1,7 +1,5 @@
-# scler.ps1 - main processing script for global.ini
+п»ї# scler.ps1 - main processing script for global.ini
 # Called from SCLER.bat
-# v1.17
-
 param(
     $file1,
     $file2,
@@ -21,8 +19,7 @@ param(
     $useUserDict = '0',
     $customOnly = '0'
 )
-
-Write-Host "scler.ps1 v1.17"
+Write-Host "scler.ps1 v1.19"
 
 $useColorTags = $useColorTags -eq '1'
 $useRpAwardTag = $useRpAwardTag -eq '1'
@@ -171,7 +168,7 @@ foreach ($line in $lines) {
 }
 
 $frontendLine = $lines -match '^Frontend_PU_Version(?:,P)?=' | Select-Object -First 1
-if (-not $frontendLine -or $frontendLine -notmatch '[а-яё]') {
+if (-not $frontendLine -or $frontendLine -notmatch '[Рђ-РЇР°-СЏРЃС‘]') {
     Write-Host 'Warning: the provided global.ini does not appear to be a Russian version. Some markers may not be translated correctly.'
 }
 
@@ -412,6 +409,9 @@ for ($i = 0; $i -lt $lines.Count; $i++) {
     $value = $p[1]
     $entry = $stage3Dict[$key]
     if ($value -match $rusBpPattern) { $null = $stage3Dict.Remove($key); continue }
+
+    Write-Host "DEBUG: key=$key, value has BP? $($value -match $rusBpPattern)"
+
     $emMatch = [regex]::Match($value, '<EM(\d+)>([^<]*)\[BP\](\*?)([^<]*)</EM\1>')
     $star = if ($entry.Type -eq 'star') { '*' } else { '' }
     $replaceWith = '<EM' + $entry.Color + '>[' + $locBP + ']' + $star + '</EM' + $entry.Color + '>'
@@ -677,13 +677,13 @@ if ($useCargoTitles) {
         $keyBase = $key -replace ',.*$', ''
         $value = $p[1]
         
-        # RegionLink: append markers
         if ($keyBase -match '_RegionLink_' -and $keyBase -match 'HaulCargo' -and $keyBase -match '_title') {
             if ($value -notmatch [regex]::Escape($cargoAppendSuffix)) {
                 $bpSuffix = ''
-                if ($value -match '\\n (<EM\d+>\[Чертежи\]\*?</EM\d+>)$') {
+                $bpPattern = '\\n (<EM\d+>\[' + [regex]::Escape($locBP) + '\]\*?</EM\d+>)$'
+                if ($value -match $bpPattern) {
                     $bpSuffix = '\n ' + $Matches[1]
-                    $value = $value -replace '\\n <EM\d+>\[Чертежи\]\*?</EM\d+>$', ''
+                    $value = $value -replace $bpPattern, ''
                 }
                 $newValue = $value + $cargoAppendSuffix + $bpSuffix
                 if ($newValue -ne ($value + $bpSuffix)) {
@@ -708,7 +708,8 @@ if ($useCargoTitles) {
                     if ($parts.ContainsKey($k)) { $ordered += $parts[$k] }
                 }
                 $newValue = $ordered -join ' | '
-                if ($value -match '\\n (<EM\d+>\[Чертежи\]\*?</EM\d+>)$') {
+                $bpPattern = '\\n (<EM\d+>\[' + [regex]::Escape($locBP) + '\]\*?</EM\d+>)$'
+                if ($value -match $bpPattern) {
                     $newValue += '\n ' + $Matches[1]
                 }
                 
@@ -779,7 +780,8 @@ if ($useUserNotes) {
     $userNotesFile = Join-Path $PSScriptRoot 'user_notes.ini'
     if (Test-Path $userNotesFile) {
         $userNotes = @{}
-        Get-Content $userNotesFile -Encoding Default | ForEach-Object {
+        $notesEncoding = Get-FileEncoding $userNotesFile
+        [System.IO.File]::ReadAllLines($userNotesFile, $notesEncoding) | ForEach-Object {
             $line = $_.Trim()
             if ($line -eq '' -or $line.StartsWith('#')) { return }
             $p = $line -split '=', 2
@@ -801,23 +803,23 @@ if ($useUserNotes) {
                 $key = $p[0].Trim() -replace ',.*$', ''
                 if ($userNotes.ContainsKey($key)) {
                     $note = $userNotes[$key]
-                    $note = $note -replace '[^A-Za-zа-яё0-9 .,!?;:()\-_+=\[\]{}|/\\@#$%^&*~`"''<>]', ' '
+                    $note = $note -replace '[^A-Za-zРђ-РЇР°-СЏРЃС‘0-9 .,!?;:()\-_+=\[\]{}|/\\@#$%^&*~`"''<>]', ' '
                     $note = $note -replace ' +', ' '
-                    $note = $note -replace '(\\n){2,}', '\n'
-                    $note = $note -replace '^(\\n)+|(\\n)+$', ''
                     if ($note.Length -gt $maxNoteLength) {
                         $note = $note.Substring(0, $maxNoteLength)
                         $truncatedNotes += $key
                     }
                     $value = ($lines[$i] -split '=', 2)[1]
                     if ($value -match [regex]::Escape($notesMarker)) {
-                        $value = $value -replace ('\\n\\n' + [regex]::Escape($notesMarker) + '\\n.*?(?=\\n\\n|$)'), ''
-                        $value = $value -replace ('\\n\\n' + [regex]::Escape($notesMarker) + '(?=\\n\\n|$)'), ''
+                        $pattern = '\\n\\n' + [regex]::Escape($notesMarker) + '\\n.*$'
+                        $value = $value -replace $pattern, ''
                     }
                     $newValue = $value + '\n\n' + $notesMarker + '\n' + $note
-                    $lines[$i] = $p[0].Trim() + '=' + $newValue
-                    $userNotesAdded++
-                    $null = $modifiedLineIndices.Add($i)
+                    if ($newValue -ne ($lines[$i] -split '=', 2)[1]) {
+                        $lines[$i] = $p[0].Trim() + '=' + $newValue
+                        $userNotesAdded++
+                        $null = $modifiedLineIndices.Add($i)
+                    }
                 }
             }
             if ($truncatedNotes.Count -gt 0) {
@@ -837,7 +839,8 @@ if ($useUserDict) {
     $userDictFile = Join-Path $PSScriptRoot 'user_dict.ini'
     if (Test-Path $userDictFile) {
         $userDict = @{}
-        Get-Content $userDictFile -Encoding Default | ForEach-Object {
+        $dictEncoding = Get-FileEncoding $userDictFile
+        [System.IO.File]::ReadAllLines($userDictFile, $dictEncoding) | ForEach-Object {
             $dictLine = $_.Trim()
             if ($dictLine -eq '' -or $dictLine.StartsWith('#')) { return }
             $dp = $dictLine -split '=', 2
@@ -909,8 +912,9 @@ if ($changedCount -eq 0) {
         
         $needBackup = $true
         if (Test-Path $backupFile) {
-            $backupEncodingName = if ($encoding -eq [System.Text.Encoding]::UTF8) { 'UTF8' } else { 'Default' }
-            $backupFrontend = (Select-String -Path $backupFile -Pattern '^Frontend_PU_Version(?:,P)?=' -Encoding $backupEncodingName | Select-Object -First 1).Line
+            $backupEncoding = Get-FileEncoding $backupFile
+            $backupLines = [System.IO.File]::ReadAllLines($backupFile, $backupEncoding)
+            $backupFrontend = $backupLines | Where-Object { $_ -match '^Frontend_PU_Version(?:,P)?=' } | Select-Object -First 1
             if ($backupFrontend -and $frontendLine -and $backupFrontend -eq $frontendLine) {
                 $needBackup = $false
             }

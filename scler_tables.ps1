@@ -1,4 +1,4 @@
-# scler_tables.ps1 - reference tables for SCLER
+﻿# scler_tables.ps1 - reference tables for SCLER
 # Loaded by scler.ps1
 
 # Rank key table: global.ini key -> English rank name

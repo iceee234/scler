@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-echo SCLER v1.18
+echo SCLER v1.19
 
 if /i "%~1"=="-?" goto :help
 if /i "%~1"=="-h" goto :help
@@ -10,7 +10,7 @@ goto :main
 :help
 cls
 echo =======================================================================================================
-echo SCLER - SC Localization Enhancer Russian v1.18
+echo SCLER - SC Localization Enhancer Russian v1.19
 echo =======================================================================================================
 echo.
 echo Usage: SCLER.bat [source_file] [options]
@@ -322,6 +322,7 @@ if "!FOUND_USE_USER_DICT!"=="0" (
     set "CFG_USE_USER_DICT=0"
 )
 if "!FOUND_UPDATE_ATTEMPTS!"=="0" (
+    echo # DO NOT EDIT THE FOLLOWING LINES MANUALLY >>"!CONFIG_FILE!"
     echo UPDATE_ATTEMPTS=0 >>"!CONFIG_FILE!"
     set "CFG_UPDATE_ATTEMPTS=0"
 )
@@ -449,7 +450,6 @@ if not errorlevel 1 (
             pause
             exit /b 1
         )
-:: Increment update attempts before starting updater
 	powershell -Command "$cfg = Get-Content '!CONFIG_FILE!' -Encoding UTF8 -Raw; $a = 0; if ($cfg -match 'UPDATE_ATTEMPTS=(\d+)') { $a = [int]$matches[1] }; $a++; $cfg = $cfg -replace 'UPDATE_ATTEMPTS=.*', ('UPDATE_ATTEMPTS=' + $a); if ($a -ge 3) { if ($cfg -notmatch 'UPDATE_FAILED=') { $cfg += \"`nUPDATE_FAILED=1\" } else { $cfg = $cfg -replace 'UPDATE_FAILED=.*', 'UPDATE_FAILED=1' } }; [System.IO.File]::WriteAllText('!CONFIG_FILE!', $cfg, [System.Text.Encoding]::UTF8)" >nul 2>&1
         echo This window will close in 3 seconds...
         timeout /t 3 /nobreak >nul
